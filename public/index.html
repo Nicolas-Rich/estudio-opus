@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estúdio Opus</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23ff6a3d'/><path d='M12 9l12 7-12 7z' fill='white'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="marca"><span class="logo">▶</span> Estúdio <b>Opus</b></div>
+    <nav class="abas">
+      <button data-vista="modelos" class="ativa">Modelos <span class="cont" id="contModelos">…</span></button>
+      <button data-vista="projetos">Projetos <span class="cont" id="contProjetos">0</span></button>
+      <button data-vista="editor">Editor</button>
+    </nav>
+    <div class="topo-dir">
+      <span id="tarefasAtivas" class="chip-tarefas" hidden></span>
+      <span id="statusClaude" class="chip">verificando Claude…</span>
+      <button class="btn mini fantasma" id="btnConfig" title="Configurações (ElevenLabs)">⚙</button>
+    </div>
+  </header>
+
+  <!-- ===================== MODELOS ===================== -->
+  <main id="vista-modelos" class="vista ativa">
+    <div class="barra-filtros">
+      <input id="busca" type="search" placeholder="Buscar nos 513 prompts (ex.: logo, partículas, 3D, produto, tipografia)…">
+      <div id="chipsCategoria" class="chips"></div>
+      <select id="filtroTag"><option value="">Toda tecnologia</option></select>
+      <label class="check"><input type="checkbox" id="soCompletos"> só prompts completos</label>
+      <button id="btnAtualizarRepo" class="btn fantasma" title="git pull no repositório">⟳ Atualizar repo</button>
+    </div>
+    <p class="contagem" id="contagemModelos"></p>
+    <div id="gradeModelos" class="grade-modelos"></div>
+    <div id="sentinela" class="sentinela"></div>
+  </main>
+
+  <!-- ===================== PROJETOS ===================== -->
+  <main id="vista-projetos" class="vista">
+    <div id="listaProjetos">
+      <div class="cabecalho-vista">
+        <div>
+          <h1>Seus projetos</h1>
+          <p class="sub">Cada projeto é uma animação gerada pelo Claude a partir de um modelo. Refine, renderize em MP4 e leve para o editor.</p>
+        </div>
+        <button class="btn primario" id="btnDoZero">＋ Criar do zero</button>
+      </div>
+      <div id="gradeProjetos" class="grade-projetos"></div>
+    </div>
+    <div id="detalheProjeto" hidden></div>
+  </main>
+
+  <!-- ===================== EDITOR ===================== -->
+  <main id="vista-editor" class="vista editor">
+    <div class="ed-topo">
+      <div class="menu-add">
+        <button class="btn primario grande" id="btnAdicionar">＋ Adicionar à edição</button>
+        <div class="menu-add-lista" id="menuAdicionar" hidden>
+          <button data-add="video"><b>🎬 Vídeo ou foto</b><small>do seu computador, entra no fim da timeline</small></button>
+          <button data-add="texto"><b>🅣 Texto</b><small>título, preço, chamada — no ponto do cabeçote</small></button>
+          <button data-add="legendas"><b>💬 Legendas automáticas</b><small>transcreve as falas e cria as legendas animadas</small></button>
+          <button data-add="trilha"><b>🎵 Trilha sonora</b><small>música de fundo do vídeo inteiro</small></button>
+          <button data-add="audio"><b>🎙 Áudio extra</b><small>locução, efeito, fala — no ponto do cabeçote</small></button>
+          <button data-add="cartela"><b>🅰 Cartela de cor</b><small>tela de cor com texto (abertura, preço, CTA)</small></button>
+          <button data-add="midia"><b>📁 Da Mídia do estúdio</b><small>renders e arquivos já importados</small></button>
+        </div>
+        <input type="file" id="upVideo" multiple hidden accept="video/*,image/*">
+        <input type="file" id="upTrilha" hidden accept="audio/*,video/*">
+        <input type="file" id="upAudio" multiple hidden accept="audio/*,video/*">
+      </div>
+      <input id="edNome" class="ed-nome" value="Meu vídeo" aria-label="Nome do vídeo">
+      <label>Formato
+        <select id="edFormato"></select>
+      </label>
+      <label>FPS
+        <select id="edFps"><option>24</option><option selected>30</option><option>60</option></select>
+      </label>
+      <label>Encaixe
+        <select id="edEncaixe"><option value="cobrir">Cobrir (corta bordas)</option><option value="conter">Conter (barras pretas)</option></select>
+      </label>
+      <span class="espaco"></span>
+      <span id="edDuracaoTotal" class="mono"></span>
+      <button class="btn primario" id="btnExportar">⬇ Exportar MP4</button>
+    </div>
+    <div id="edExport" class="ed-export" hidden></div>
+
+    <div class="ed-corpo">
+      <aside class="ed-midia">
+        <div class="ed-midia-topo">
+          <b>Mídia</b>
+          <div>
+            <button class="btn mini" id="btnAbrirPasta" title="Abrir a pasta no Explorer">📁</button>
+            <label class="btn mini">⬆ Importar<input type="file" id="inputUpload" multiple hidden accept="video/*,image/*,audio/*"></label>
+          </div>
+        </div>
+        <div class="chips pequenos" id="filtroMidia">
+          <button data-f="" class="ativa">Tudo</button><button data-f="video">Vídeos</button><button data-f="imagem">Imagens</button><button data-f="audio">Áudios</button>
+        </div>
+        <div id="listaMidia" class="lista-midia"></div>
+        <div class="dica-drop">Arraste arquivos do computador para cá · arraste itens daqui para a timeline</div>
+      </aside>
+
+      <section class="ed-palco">
+        <div class="palco-caixa" id="palcoCaixa">
+          <div class="palco" id="palco">
+            <div class="palco-midia" id="palcoMidia">
+              <video id="player" playsinline preload="auto"></video>
+              <img id="playerImg" alt="" hidden>
+              <div id="palcoCartela" class="palco-cartela" hidden></div>
+            </div>
+            <div id="overlayTexto" class="overlay-texto"></div>
+            <div id="overlayTextos" class="overlay-textos"></div>
+            <div id="overlayLegenda" class="overlay-legenda"></div>
+            <div id="palcoVazio" class="palco-vazio">Use <b>＋ Adicionar à edição</b> ou arraste itens da Mídia para a timeline.<br>Renders dos seus projetos aparecem na Mídia automaticamente.</div>
+          </div>
+        </div>
+        <div class="controles-player">
+          <button class="btn fantasma" id="btnInicio" title="Voltar ao início (Home)">⏮</button>
+          <button class="btn primario" id="btnPlay" title="Tocar / pausar (Espaço)">▶</button>
+          <span class="mono" id="tempoSeq">0:00.0 / 0:00.0</span>
+          <label class="vol-previa" title="Volume da pré-visualização (não muda o vídeo exportado)"><span id="edVolIcone">🔊</span><input type="range" id="edVolPrevia" min="0" max="1" step="0.05" value="1"></label>
+        </div>
+      </section>
+
+      <aside class="ed-inspetor" id="inspetor">
+        <p class="vazio">Selecione um item na timeline para editar.</p>
+      </aside>
+    </div>
+
+    <div class="timeline">
+      <div class="tl-ferramentas">
+        <button class="btn mini" id="tbDesfazer" title="Desfazer (Ctrl+Z)">↶</button>
+        <button class="btn mini" id="tbRefazer" title="Refazer (Ctrl+Y)">↷</button>
+        <span class="tl-sep"></span>
+        <button class="btn mini" id="tbDividir" title="Dividir no cabeçote (S)">✂ Dividir</button>
+        <button class="btn mini" id="tbDuplicar" title="Duplicar (Ctrl+D)">⧉ Duplicar</button>
+        <button class="btn mini" id="tbExcluir" title="Excluir (Delete)">🗑 Excluir</button>
+        <span class="tl-sep"></span>
+        <button class="btn mini" id="tbTexto" title="Adicionar texto no cabeçote (T)">🅣 Texto</button>
+        <button class="btn mini" id="tbLegendas" title="Legendas automáticas">💬 Legendas</button>
+        <button class="btn mini" id="tbDesanexar" title="Separar o áudio do clipe numa faixa própria">🔊 Separar áudio</button>
+        <span class="espaco"></span>
+        <span class="tl-atalhos">Espaço tocar · S dividir · Del excluir · ←/→ quadro · Ctrl+Z desfazer</span>
+        <label class="zoom">🔍 <input type="range" id="tlZoom" min="15" max="240" value="60"></label>
+      </div>
+      <div class="tl-rolagem" id="tlRolagem">
+        <div class="tl-conteiner" id="tlConteiner">
+          <div class="tl-linha"><div class="tl-rotulo"></div><div class="tl-regua" id="tlRegua"></div></div>
+          <div class="tl-linha"><div class="tl-rotulo">🎬 Vídeo</div><div class="tl-pista tl-clipes" id="tlClipes"></div></div>
+          <div class="tl-linha"><div class="tl-rotulo">🅣 Textos</div><div class="tl-pista tl-textos" id="tlTextos"></div></div>
+          <div class="tl-linha"><div class="tl-rotulo">💬 Legendas</div><div class="tl-pista tl-legendas" id="tlLegendas"></div></div>
+          <div class="tl-linha"><div class="tl-rotulo">🎵 Trilha</div><div class="tl-pista tl-musica" id="tlMusica"></div></div>
+          <div class="tl-linha"><div class="tl-rotulo">🎙 Áudios</div><div class="tl-pista tl-audios" id="tlAudios"></div></div>
+          <div class="tl-cabeca" id="tlCabeca"><i></i></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="modal" class="modal" hidden></div>
+  <div id="toasts" class="toasts"></div>
+  <script src="app.js" type="module"></script>
+</body>
+</html>

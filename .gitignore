@@ -1,0 +1,16 @@
+# ---- dados pessoais: NUNCA vão para o GitHub ----
+# chave da ElevenLabs (dados/config.json), projetos, vídeos, áudios, gravações, edição, cache
+/dados/
+
+# dependências e biblioteca de modelos (baixadas automaticamente)
+node_modules/
+/awesome-opus5-5-videos/
+
+# arquivos temporários e de sistema
+*.log
+.env
+.env.*
+Thumbs.db
+desktop.ini
+.DS_Store
+_*.mjs
