@@ -95,7 +95,7 @@ Depois feche e abra o PowerShell de novo.
 
 ### 1.6 Abra o Estúdio
 1. Entre na pasta e dê **dois cliques em `Iniciar Estudio.bat`**.
-2. Na **primeira vez** ele instala as dependências (inclusive o ffmpeg) e baixa os 513 modelos. Leva alguns minutos.
+2. Na **primeira vez** ele instala as dependências (inclusive o ffmpeg) e baixa a biblioteca de modelos (800+). Leva alguns minutos.
 3. O navegador abre em **http://127.0.0.1:4777**.
 4. **Deixe a janela preta aberta** enquanto usa o estúdio. Fechar a janela desliga o estúdio.
 

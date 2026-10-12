@@ -1,6 +1,6 @@
 # 🎬 Estúdio Opus
 
-**Estúdio de vídeo com IA que roda no seu computador.** Você parte de **mais de 500 modelos** de animações virais (motion graphics, explicativos, cenas 3D, jogos) e o Claude cria a animação para a **sua** marca. Depois o estúdio coloca voz, efeitos e legendas, monta tudo num editor estilo CapCut e exporta em MP4, pronto para Reels, TikTok, Stories, Feed ou YouTube.
+**Estúdio de vídeo com IA que roda no seu computador.** Você parte de **mais de 800 modelos** de animações virais (motion graphics, explicativos, cenas 3D, jogos) e o Claude cria a animação para a **sua** marca. Depois o estúdio coloca voz, efeitos e legendas, monta tudo num editor estilo CapCut e exporta em MP4, pronto para Reels, TikTok, Stories, Feed ou YouTube.
 
 > 📚 **Novo por aqui? Siga o [CURSO.md](CURSO.md)**: um passo a passo completo, do zero ao primeiro vídeo publicado.
 > Para consulta rápida, use o [COMO-USAR.md](COMO-USAR.md).
@@ -11,7 +11,7 @@
 
 | | |
 |---|---|
-| 🧩 **513 modelos** | Biblioteca de prompts do [awesome-opus5-5-videos](https://github.com/yihui-dev/awesome-opus5-5-videos), com busca e filtros |
+| 🧩 **800+ modelos** | Biblioteca de prompts (cresce com o tempo — botão "Atualizar repo") do [awesome-opus5-5-videos](https://github.com/yihui-dev/awesome-opus5-5-videos), com busca e filtros |
 | 💡 **Gerador de prompt** | Você escreve a ideia em poucas palavras e o Claude escreve o prompt completo, com cenas e tempos |
 | ✦ **Animação com Claude** | Usa o **Claude Code da sua assinatura** (sem API key). Refine em português e volte a qualquer versão |
 | 🎙 **Voz** | Piper e Windows (grátis, offline), **ElevenLabs** com escolha de vozes brasileiras e amostra, ou **a sua própria gravação** |

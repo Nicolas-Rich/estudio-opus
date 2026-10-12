@@ -1,6 +1,6 @@
 # Estúdio Opus — editor de vídeo local
 
-Ferramenta local que transforma os **513 modelos** do repositório
+Ferramenta local que transforma os **800+ modelos** do repositório
 [awesome-opus5-5-videos](https://github.com/yihui-dev/awesome-opus5-5-videos) em vídeos MP4 seus.
 
 O repositório não tem vídeos: são **prompts** que criadores deram ao Claude Opus 5.5 para ele escrever
@@ -20,7 +20,7 @@ Pelo terminal: `npm start` dentro desta pasta.
 ## As três abas
 
 ### 1. Modelos
-- Busca nos 513 prompts, com filtro por categoria (Motion graphics, Explicativos, Cenas 3D, Jogos e
+- Busca em todos os prompts, com filtro por categoria (Motion graphics, Explicativos, Cenas 3D, Jogos e
   interativos) e por tecnologia (canvas, threejs, gsap, shader…).
 - Clique num card para ver o prompt original e os links do vídeo original e do remake no Skillry.
 - **💡 Sua ideia → ✦ Gerar prompt**: escreva a ideia em poucas palavras e o Claude escreve um prompt completo, com cenas, tempos, paleta e gancho, no estilo do modelo escolhido. Dá para desfazer. **✦ Sugerir instruções extras** propõe gancho, CTA, áreas seguras do Reels e legibilidade; escreva no campo o que você quer (ex.: "CTA para comprar no link") antes de clicar.

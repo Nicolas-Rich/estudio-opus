@@ -114,6 +114,7 @@ async function carregarModelos() {
   estado.modelos = d.modelos;
   estado.categorias = d.categorias;
   $('#contModelos').textContent = d.modelos.length;
+  $('#busca').placeholder = `Buscar nos ${d.modelos.length} prompts (ex.: logo, partículas, 3D, produto, tipografia)…`;
   const cont = {};
   const tags = {};
   for (const m of d.modelos) {

@@ -2,7 +2,7 @@
   "name": "estudio-opus",
   "version": "1.0.0",
   "private": true,
-  "description": "Estúdio local de vídeo com IA: 500+ modelos de animação, geração com Claude, voz, efeitos, legendas automáticas e editor estilo CapCut.",
+  "description": "Estúdio local de vídeo com IA: 800+ modelos de animação, geração com Claude, voz, efeitos, legendas automáticas e editor estilo CapCut.",
   "type": "module",
   "main": "server.js",
   "scripts": {
