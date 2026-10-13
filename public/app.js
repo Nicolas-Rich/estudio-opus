@@ -88,7 +88,7 @@ async function carregarStatus() {
     const s = await api('/api/status');
     estado.modelosClaude = s.modelosClaude;
     const el = $('#statusClaude');
-    if (s.claude) { el.textContent = `Claude ${s.claude.split(' ')[0]} ✓`; el.className = 'chip ok'; el.title = s.claude; }
+    if (s.claude) { el.textContent = `Claude ${s.claude.split(' ')[0]} ✓${s.codex ? ' · Codex ✓' : ''}`; el.className = 'chip ok'; el.title = [s.claude, s.codex].filter(Boolean).join(' | '); }
     else { el.textContent = 'Claude CLI não encontrado'; el.className = 'chip erro'; el.title = 'Instale o Claude Code e faça login'; }
   } catch {}
 }
@@ -220,6 +220,15 @@ function formularioCriacao(m) {
           <span class="ajuda" id="fIdeiaMsg" style="margin:0">${m ? 'Usa o estilo deste modelo + a sua ideia.' : 'O Claude escreve um prompt completo, com cenas e tempos.'}</span>
         </div>
       </div>
+      <div class="caixa-imagens">
+        <div class="linha" style="align-items:center">
+          <b style="flex:1">🖼 Imagens (opcional)</b>
+          <label class="btn mini" style="flex:none">＋ Adicionar imagens<input type="file" id="fImagens" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
+        </div>
+        ${m ? '<label class="check"><input type="checkbox" id="fFiel" checked> ficar <b>fiel ao visual do vídeo original</b> (a IA vê um quadro dele)</label>' : ''}
+        <p class="ajuda" style="margin:0"><b>Elemento</b> = entra no vídeo (logo, produto, foto). <b>Referência</b> = o Claude só copia o estilo. Ele vê as imagens antes de criar.</p>
+        <div id="fListaImagens" class="lista-imagens"></div>
+      </div>
       <label>Prompt ${m ? '(edite à vontade — é o ponto de partida)' : ''}
         <textarea id="fPrompt" rows="${m ? 9 : 7}" placeholder="Descreva a animação: estilo, cenas, ritmo, tipografia…">${esc(m?.prompt || '')}</textarea>
       </label>
@@ -275,6 +284,42 @@ function ligarFormulario(m) {
     $$('#fFormatos .formato').forEach((x) => x.classList.toggle('ativa', x === b));
   }));
 
+  // ---------- imagens (elementos e referências)
+  const imagens = [];
+  const desenharImagens = () => {
+    $('#fListaImagens').innerHTML = imagens.map((im, i) => `<div class="img-item">
+      <img src="${im.url}" alt="">
+      <div>
+        <div class="chips pequenos" data-i="${i}">
+          <button type="button" data-papel="elemento" class="${im.papel === 'elemento' ? 'ativa' : ''}">Elemento</button>
+          <button type="button" data-papel="referencia" class="${im.papel === 'referencia' ? 'ativa' : ''}">Referência</button>
+        </div>
+        <input type="text" data-desc="${i}" value="${esc(im.descricao)}" placeholder="O que é? (ex.: logo da marca, foto do produto)">
+      </div>
+      <button type="button" class="btn mini perigo" data-rem="${i}">✕</button></div>`).join('');
+  };
+  $('#fImagens').onchange = async (e) => {
+    for (const f of e.target.files) {
+      try {
+        const r = await fetch(`/api/imagens?nome=${encodeURIComponent(f.name)}`, { method: 'POST', body: f });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.erro);
+        const ehLogo = /logo|marca|produto|product/i.test(f.name);
+        imagens.push({ ...d, papel: ehLogo || !imagens.length ? 'elemento' : 'referencia', descricao: ehLogo ? f.name.replace(/.[a-z]+$/i, '') : '' });
+      } catch (err) { toast(`${f.name}: ${err.message}`, 'erro'); }
+    }
+    e.target.value = '';
+    desenharImagens();
+  };
+  $('#fListaImagens').addEventListener('click', (e) => {
+    const p = e.target.closest('[data-papel]');
+    if (p) { imagens[+p.parentElement.dataset.i].papel = p.dataset.papel; desenharImagens(); }
+    const r = e.target.closest('[data-rem]');
+    if (r) { imagens.splice(+r.dataset.rem, 1); desenharImagens(); }
+  });
+  $('#fListaImagens').addEventListener('input', (e) => { if (e.target.dataset.desc != null) imagens[+e.target.dataset.desc].descricao = e.target.value; });
+  const imagensPayload = () => imagens.map(({ id, papel, descricao }) => ({ id, papel, descricao }));
+
   // ---------- assistente: ideia → prompt, e sugestão de instruções extras
   const ajustesDoForm = () => {
     const f = formatoPorId($('#fFormatos .ativa')?.dataset.id);
@@ -293,7 +338,7 @@ function ligarFormulario(m) {
     b.disabled = true;
     b.textContent = 'Claude escrevendo o prompt…';
     try {
-      const r = await api('/api/assistente', { corpo: { tipo: 'prompt', ideia, slug: m?.slug, ajustes: ajustesDoForm() } });
+      const r = await api('/api/assistente', { corpo: { tipo: 'prompt', ideia, slug: $('#fFiel')?.checked === false ? undefined : m?.slug, ajustes: ajustesDoForm(), imagens: imagensPayload(), modelo: $('#fModelo').value } });
       promptAnterior = $('#fPrompt').value;
       $('#fPrompt').value = r.texto;
       $('#fDesfazerPrompt').hidden = false;
@@ -314,7 +359,7 @@ function ligarFormulario(m) {
     b.textContent = 'Claude pensando…';
     try {
       const r = await api('/api/assistente', {
-        corpo: { tipo: 'extras', prompt: $('#fPrompt').value, ideiaExtra: $('#fExtra').value, ajustes: ajustesDoForm() },
+        corpo: { tipo: 'extras', prompt: $('#fPrompt').value, ideiaExtra: $('#fExtra').value, ajustes: ajustesDoForm(), modelo: $('#fModelo').value },
       });
       $('#fExtra').value = r.texto;
       $('#fExtra').rows = Math.min(9, r.texto.split('\n').length + 1);
@@ -353,7 +398,7 @@ function ligarFormulario(m) {
         locucao = fim.resultado.locucao;
         $('#fGerar').textContent = `Locução transcrita (${fim.resultado.duracao.toFixed(1)}s) — criando…`;
       }
-      const r = await api('/api/projetos', { corpo: { slug: m?.slug, prompt, ajustes, modelo: $('#fModelo').value, nome: $('#fNome').value.trim(), locucao } });
+      const r = await api('/api/projetos', { corpo: { slug: m?.slug, prompt, ajustes, modelo: $('#fModelo').value, nome: $('#fNome').value.trim(), locucao, imagens: imagensPayload(), fiel: $('#fFiel') ? $('#fFiel').checked : false } });
       fecharModal();
       toast('Geração iniciada! Acompanhe no projeto.', 'ok');
       abrirProjeto(r.projeto.id);
@@ -661,6 +706,7 @@ async function desenharAba(p) {
     c.innerHTML = `
       ${p.autor ? `<p class="ajuda" style="margin:0">Baseado no modelo de <b>@${esc(p.autor)}</b></p>` : ''}
       <div class="prompt-original">${esc(p.prompt)}</div>
+      ${p.imagens?.length ? `<div class="lista-imagens">${p.imagens.map((im) => `<div class="img-item"><img src="/p/${p.id}/assets/${encodeURIComponent(im.arquivo)}" alt=""><div><b>${im.papel === 'referencia' ? 'Referência' : 'Elemento'}</b><br><small>${esc(im.descricao || im.arquivo)}</small></div></div>`).join('')}</div>` : ''}
       <div class="mono" style="white-space:pre-wrap">${esc([
         `Formato: ${a.largura}×${a.altura} (${a.formatoNome || ''})`, `Duração: ${a.duracao}s`,
         a.idioma && `Idioma: ${a.idioma}`, a.tema && `Tema: ${a.tema}`, a.textos && `Textos: ${a.textos}`,

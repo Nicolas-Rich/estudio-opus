@@ -9,12 +9,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gerarComClaude, montarPedido, montarRefino, montarSincronia, MODELOS_CLAUDE, versaoClaude } from './lib/claude.js';
 import { renderizarHtml, capturarQuadro } from './lib/render.js';
-import { sondar, miniatura, exportarTimeline } from './lib/ffmpeg.js';
+import { sondar, miniatura, exportarTimeline, FFMPEG as FFMPEG_BIN } from './lib/ffmpeg.js';
 import { registrarRotasAudio, estadoAudio, faixasDoProjeto } from './lib/rotas-audio.js';
 import { aplicarAudioNoVideo } from './lib/audio.js';
 import { exportarEdicao } from './lib/montagem.js';
 import { transcrever } from './lib/transcricao.js';
 import { gerarPromptDeIdeia, sugerirExtras } from './lib/assistente.js';
+import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 
 const RAIZ = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(RAIZ, 'awesome-opus5-5-videos');
@@ -162,6 +163,7 @@ function iniciarGeracao(p, pedido, origem, instrucao) {
   gerarComClaude({
     pedido,
     modelo: p.modelo,
+    pastaImagens: p.imagens?.length ? path.join(pastaProjeto(p.id), 'assets') : undefined,
     sinal: job.controle.signal,
     aoProgresso: (chars, msg) => {
       if (msg) msgJob(job, msg);
@@ -222,7 +224,8 @@ app.post('/api/midia/upload', async (req, res) => {
 app.use(express.json({ limit: '20mb' }));
 
 app.get('/api/status', async (_req, res) => {
-  res.json({ claude: await versaoClaude(), modelosClaude: MODELOS_CLAUDE, totalModelos: modelos.length });
+  const codex = await versaoCodex();
+  res.json({ claude: await versaoClaude(), codex, modelosClaude: [...MODELOS_CLAUDE, ...(codex ? MODELOS_CODEX : [])], totalModelos: modelos.length });
 });
 
 app.get('/api/modelos', (_req, res) => {
@@ -260,9 +263,15 @@ app.post('/api/assistente', async (req, res) => {
     const mesmos = candidatos.filter((m) => !base || m.category === base.category);
     const pool = mesmos.length >= 2 ? mesmos : candidatos;
     const referencias = [...pool].sort(() => Math.random() - 0.5).slice(0, 2).map((m) => m.prompt);
+    // pasta só deste pedido, com as imagens dele (+ quadro do vídeo original do modelo)
+    const pastaAssist = path.join(PASTAS.temp, `assist-${novoId()}`);
+    const imgsAssist = await moverImagens(req.body?.imagens, pastaAssist);
+    if (base) { const o = await quadroOriginal(base.slug, pastaAssist); if (o) imgsAssist.push(o); }
     const texto = await gerarPromptDeIdeia({
       ideia, ajustes, modeloBase: base?.prompt, referencias, modelo: modelo || 'claude-sonnet-5-5',
+      imagens: imgsAssist, pastaImagens: imgsAssist.length ? pastaAssist : undefined,
     });
+    fs.rm(pastaAssist, { recursive: true, force: true }).catch(() => {});
     res.json({ texto });
   } catch (e) {
     res.status(500).json({ erro: e.message });
@@ -303,7 +312,7 @@ app.get('/api/projetos/:id', async (req, res) => {
 });
 
 app.post('/api/projetos', async (req, res) => {
-  const { slug, prompt, ajustes, modelo, nome, locucao: locucaoEnviada } = req.body || {};
+  const { slug, prompt, ajustes, modelo, nome, locucao: locucaoEnviada, imagens: imagensEnviadas } = req.body || {};
   if (!prompt || !ajustes?.largura || !ajustes?.altura || !ajustes?.duracao) {
     return res.status(400).json({ erro: 'Faltam prompt, formato ou duração.' });
   }
@@ -339,7 +348,16 @@ app.post('/api/projetos', async (req, res) => {
       return res.status(400).json({ erro: e.message });
     }
   }
-  const job = iniciarGeracao(projeto, montarPedido({ prompt, ajustes: projeto.ajustes, locucao }), 'gerado');
+  if (Array.isArray(imagensEnviadas) && imagensEnviadas.length) {
+    projeto.imagens = await moverImagens(imagensEnviadas, path.join(pastaProjeto(id), 'assets'));
+  }
+  // partindo de um modelo: o quadro do vídeo original vai como referência de fidelidade
+  if (slug && req.body?.fiel !== false) {
+    const orig = await quadroOriginal(slug, path.join(pastaProjeto(id), 'assets'));
+    if (orig) projeto.imagens = [...(projeto.imagens || []), orig];
+  }
+  if (projeto.imagens?.length) await salvarProjeto(projeto);
+  const job = iniciarGeracao(projeto, montarPedido({ prompt, ajustes: projeto.ajustes, locucao, imagens: projeto.imagens }), 'gerado');
   res.json({ projeto, job: jobPublico(job) });
 });
 
@@ -353,7 +371,7 @@ app.post('/api/projetos/:id/refinar', async (req, res) => {
   let pedido;
   if (p.versaoAtual) {
     const htmlAtual = await fs.readFile(path.join(pastaProjeto(p.id), `v${p.versaoAtual}.html`), 'utf8');
-    pedido = montarRefino({ htmlAtual, instrucao, ajustes: p.ajustes, locucao: audioHooks.locucaoDoProjeto(p) });
+    pedido = montarRefino({ htmlAtual, instrucao, ajustes: p.ajustes, locucao: audioHooks.locucaoDoProjeto(p), imagens: p.imagens });
   } else {
     pedido = montarPedido({ prompt: p.prompt, ajustes: { ...p.ajustes, extra: [p.ajustes.extra, instrucao].filter(Boolean).join(' · ') } });
   }
@@ -366,7 +384,7 @@ app.post('/api/projetos/:id/regerar', async (req, res) => {
   if (!p) return res.status(404).json({ erro: 'Projeto não encontrado' });
   if (p.status === 'gerando') return res.status(409).json({ erro: 'Já existe uma geração em andamento.' });
   if (req.body?.modelo) p.modelo = req.body.modelo;
-  const job = iniciarGeracao(p, montarPedido({ prompt: p.prompt, ajustes: p.ajustes, locucao: audioHooks.locucaoDoProjeto(p) }), 'gerado');
+  const job = iniciarGeracao(p, montarPedido({ prompt: p.prompt, ajustes: p.ajustes, locucao: audioHooks.locucaoDoProjeto(p), imagens: p.imagens }), 'gerado');
   res.json({ job: jobPublico(job) });
 });
 
@@ -425,6 +443,62 @@ app.get('/api/projetos/:id/capa', async (req, res) => {
 });
 
 // a animação em si (iframe de pré-visualização e fonte do render)
+/** Copia um quadro do vídeo original do modelo (pôster) como PNG para a pasta indicada. */
+async function quadroOriginal(slug, destinoDir, nomeArquivo = 'modelo-original.png') {
+  const m = modelosPorSlug.get(slug);
+  if (!m) return null;
+  const webp = path.join(PASTAS.posters, m.slug + '.webp');
+  try {
+    if (!existsSync(webp)) {
+      const r = await fetch(m.poster_url);
+      if (!r.ok) return null;
+      await fs.writeFile(webp, Buffer.from(await r.arrayBuffer()));
+    }
+    await fs.mkdir(destinoDir, { recursive: true });
+    const png = path.join(destinoDir, nomeArquivo);
+    await new Promise((ok, falha) => {
+      const p = spawn(FFMPEG_BIN, ['-y', '-loglevel', 'error', '-i', webp, '-frames:v', '1', '-vf', "scale='min(1280,iw)':-2", png]);
+      p.on('error', falha);
+      p.on('close', (code) => (code === 0 ? ok() : falha(new Error('ffmpeg ' + code))));
+    });
+    return { arquivo: nomeArquivo, papel: 'original', descricao: `quadro do vídeo original de @${m.author}` };
+  } catch { return null; }
+}
+
+// ---- imagens enviadas pelo usuário (elementos e referências)
+const PASTA_IMG_TEMP = path.join(PASTAS.temp, 'imagens');
+await fs.mkdir(PASTA_IMG_TEMP, { recursive: true });
+const EXT_IMG = /^.(png|jpe?g|webp|gif|svg)$/i;
+app.post('/api/imagens', async (req, res) => {
+  const original = path.basename(String(req.query.nome || 'imagem.png'));
+  const ext = path.extname(original).toLowerCase();
+  if (!EXT_IMG.test(ext)) return res.status(400).json({ erro: 'Envie PNG, JPG, WEBP, GIF ou SVG.' });
+  const id = `${slugify(path.basename(original, ext)).slice(0, 30)}-${novoId()}${ext}`;
+  const ws = createWriteStream(path.join(PASTA_IMG_TEMP, id));
+  req.pipe(ws);
+  ws.on('finish', () => res.json({ id, nome: original, url: `/arquivos/imagens-temp/${id}` }));
+  ws.on('error', (e) => res.status(500).json({ erro: e.message }));
+});
+app.use('/arquivos/imagens-temp', express.static(PASTA_IMG_TEMP));
+/** lista de {id, papel, descricao} → só as que existem, com o nome do arquivo */
+function imagensTemp(lista) {
+  return (Array.isArray(lista) ? lista : [])
+    .filter((i) => /^[a-z0-9-]+.[a-z]+$/i.test(i.id || '') && existsSync(path.join(PASTA_IMG_TEMP, i.id)))
+    .map((i) => ({ arquivo: i.id, papel: i.papel === 'referencia' ? 'referencia' : 'elemento', descricao: String(i.descricao || '').slice(0, 200) }));
+}
+async function moverImagens(lista, destino) {
+  await fs.mkdir(destino, { recursive: true });
+  const ok = imagensTemp(lista);
+  for (const i of ok) await fs.copyFile(path.join(PASTA_IMG_TEMP, i.arquivo), path.join(destino, i.arquivo));
+  return ok;
+}
+app.get('/p/:id/assets/:arquivo', (req, res) => {
+  if (!idValido(req.params.id)) return res.status(400).end();
+  const arq = path.join(pastaProjeto(req.params.id), 'assets', path.basename(req.params.arquivo));
+  if (!existsSync(arq)) return res.status(404).end();
+  res.sendFile(arq);
+});
+
 app.get(['/p/:id', '/p/:id/'], async (req, res) => {
   if (!idValido(req.params.id)) return res.status(400).end();
   if (!req.path.endsWith('/')) return res.redirect(req.originalUrl.replace(/(\?|$)/, '/$1'));

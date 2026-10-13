@@ -434,3 +434,10 @@ body.arrastando-midia .tl-clipes, body.arrastando-midia .tl-musica, body.arrasta
 .leg-item > button.mono { background: none; border: 0; color: var(--acento-2); cursor: pointer; text-align: left; padding: 0; }
 .leg-item input { padding: 5px 7px; font-size: 12.5px; }
 .timeline { max-height: 40vh; }
+
+.caixa-imagens { border: 1px dashed var(--borda); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+.lista-imagens { display: grid; gap: 8px; }
+.img-item { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; }
+.img-item img { width: 64px; height: 64px; object-fit: contain; background: #0b0c0f repeating-conic-gradient(#15171c 0 25%, #0f1115 0 50%) 0 0/12px 12px; border-radius: 8px; border: 1px solid var(--borda); }
+.img-item > div { display: grid; gap: 5px; }
+.img-item input { padding: 5px 8px; font-size: 12.5px; }

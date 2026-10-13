@@ -153,11 +153,21 @@ Uma edição estilo CapCut, com mídia à esquerda, prévia no centro, painel de
 | **Paleta** | Ex.: "preto, laranja #FF6A3D e branco" |
 | **Instruções extras** | Escreva o que você quer (ex.: "CTA para comprar no link") e clique em **✦ Sugerir instruções extras** |
 
-### 3.4 Escolha o modelo do Claude
-- **Sonnet:** rápido, ótimo para testar ideias.
-- **Opus:** mais caprichado, use na versão final.
+### 3.4 Adicione suas imagens (opcional)
+Em **🖼 Imagens**, clique em **＋ Adicionar imagens** e defina o papel de cada uma:
+- **Elemento:** entra no vídeo de verdade (logo, foto do produto, mockup).
+- **Referência:** a IA só copia o estilo (cores, composição, clima); a imagem não aparece no vídeo.
 
-### 3.5 Gere
+Escreva o que é cada imagem ("logo da marca", "pote sabor chocolate"). A IA vê as imagens antes de criar, tanto no gerador de prompt quanto na animação.
+
+> 🎯 Partindo de um modelo, deixe marcado **"ficar fiel ao visual do vídeo original"**. A IA recebe um quadro do vídeo original e reproduz o visual, trocando só o conteúdo pela sua marca.
+
+### 3.5 Escolha o motor
+- **Sonnet (Claude):** rápido, ótimo para testar ideias.
+- **Opus (Claude):** mais caprichado, use na versão final.
+- **GPT-6 Sol (Codex):** aparece se você tiver o app **Codex** (OpenAI) instalado e logado. Costuma levar de 2 a 5 minutos e você pode continuar usando o estúdio enquanto isso.
+
+### 3.6 Gere
 Clique em **✦ Gerar animação com Claude**. Leva de 1 a 6 minutos e você pode continuar usando o estúdio enquanto isso. Quando terminar, a animação aparece tocando na tela do projeto.
 
 > 💡 **Já gravou a locução?** Envie o áudio em **"Já tem a locução gravada?"**. O estúdio transcreve a sua fala e a animação já nasce **sincronizada** com ela.
