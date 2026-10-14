@@ -289,6 +289,10 @@ Use esta aba para cenas **realistas** que a animação em código não faz: pess
 5. Clique em **🎬 Gerar vídeo**. Leva de 1 a 5 minutos; o custo real aparece em cada resultado.
 6. O vídeo vai direto para a **Mídia do Editor**: monte com as animações, a voz e as legendas.
 
+**🧬 Mapa do personagem (consistência):** clique em **＋ Novo mapa**, envie de 1 a 4 fotos **só do personagem** (rosto, corpo, roupa) e detalhes opcionais. A IA cria uma **descrição fixa**, que vai em todo prompt, e as fotos vão como **referência** (Veo Fast/Lite e Seedance). Escolha o mapa antes de gerar e todos os vídeos mantêm a mesma pessoa, roupa e estilo.
+
+**➡ Continuar:** em um resultado pronto, clique em **➡ Continuar**. O último quadro vira o primeiro do próximo clipe; escreva o que acontece em seguida. Assim você monta um vídeo longo em partes que se encaixam.
+
 > 💡 Teste o prompt no modelo mais barato e só gere no melhor quando estiver bom. Se a pessoa do vídeo for gerada por IA, identifique o anúncio como conteúdo de IA (regras do CONAR e do Meta Ads).
 
 ---

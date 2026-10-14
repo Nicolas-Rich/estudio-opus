@@ -564,3 +564,9 @@ body.arrastando-midia .tl-clipes, body.arrastando-midia .tl-musica, body.arrasta
 .kie-info p { margin: 0; font-size: 12px; color: var(--texto-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 @media (max-width: 1100px) { .kie-grade { grid-template-columns: 1fr; height: auto; } }
 .kie-lista .vazio-grande { grid-column: 1 / -1; }
+.kie-mapa { display: grid; gap: 8px; background: var(--painel-2); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; }
+.kie-mapa select { flex: 1; }
+.kie-perfil { display: grid; gap: 8px; }
+.kie-perfil details summary { cursor: pointer; font-size: 12px; color: var(--texto-2); }
+.kie-perfil textarea { font-size: 12px; margin-top: 6px; }
+.kie-continua { background: rgba(255,106,61,.1); border: 1px solid var(--acento); border-radius: 8px; padding: 8px 10px; font-size: 13px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }

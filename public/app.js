@@ -3106,6 +3106,7 @@ const salvarFormKie = () => { try { localStorage.setItem('kieForm', JSON.stringi
 
 async function abrirKie() {
   if (!kz.modelos) kz.modelos = await api('/api/kie/modelos');
+  kz.perfis = await api('/api/kie/perfis').catch(() => []);
   kz.cfg = await api('/api/kie/config');
   desenharKie();
   desenharHistoricoKie();
@@ -3132,7 +3133,25 @@ function desenharKie() {
       <select id="kieModelo">${grupos.map((g) => `<optgroup label="${esc(g)}">${kz.modelos.filter((x) => x.grupo === g).map((x) => `<option value="${esc(x.id)}" ${x.id === m.id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</optgroup>`).join('')}</select></label>
     <p class="ajuda kie-dica">💡 ${esc(m.dica)} · <b>Preço:</b> ${esc(m.estimativa)}</p>
 
-    <label>Sua ideia <small>(em português)</small>
+    <div class="kie-mapa">
+      <label>🧬 Mapa do personagem <small>(mantém a mesma pessoa/produto/estilo em todos os vídeos)</small>
+        <div class="voz-linha"><select id="kiePerfil"><option value="">Nenhum</option>${(kz.perfis || []).map((p) => `<option value="${esc(p.id)}" ${p.id === f.perfilId ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select>
+          <button class="btn" id="kieNovoPerfil">＋ Novo mapa</button></div></label>
+      ${(() => {
+        const p = (kz.perfis || []).find((x) => x.id === f.perfilId);
+        if (!p) return '';
+        return `<div class="kie-perfil">
+          <div class="kie-imgs">${p.imagens.map((n) => `<div class="kie-img" style="background-image:url('/kie/imagens/${encodeURIComponent(n)}')"></div>`).join('') || '<small class="ajuda">sem fotos (só descrição)</small>'}</div>
+          <details><summary>Descrição fixa (vai em todo prompt) — clique para ver/editar</summary>
+            <textarea id="kieDna" rows="7">${esc(p.dna)}</textarea>
+            <div class="voz-linha"><button class="btn mini" id="kieSalvarDna">Salvar descrição</button><button class="btn mini perigo" id="kieApagarPerfil">Apagar mapa</button></div></details>
+          <p class="ajuda">${['veo3_fast', 'veo3_lite', 'bytedance/seedance-2-fast'].includes(m.id) ? '✔ As fotos do personagem vão como referência neste modelo.' : 'Neste modelo o personagem segue pela descrição (as fotos de referência funcionam no Veo Fast/Lite e no Seedance).'}</p>
+        </div>`;
+      })()}
+    </div>
+    ${kz.continuacao ? `<div class="kie-continua">➡ Continuando do vídeo anterior: o último quadro dele é o primeiro deste. <button class="btn mini" id="kieCancelarCont">✕ cancelar</button></div>` : ''}
+
+    <label>${kz.continuacao ? 'O que acontece em seguida?' : 'Sua ideia'} <small>(em português)</small>
       <textarea id="kieIdeia" rows="3" placeholder="Ex.: mulher de 28 anos na cozinha, segurando o pote do produto, falando animada que toma todo dia depois do treino">${esc(f.ideia || '')}</textarea></label>
     <div class="voz-linha">
       <label class="check"><input type="checkbox" id="kieFala" ${f.comFala !== false ? 'checked' : ''}> pessoa falando (fala em português)</label>
@@ -3183,6 +3202,19 @@ function desenharKie() {
   lembrar('#kieAudio', 'audio', 'change', (el) => el.checked);
   lembrar('#kieAspecto', 'aspecto', 'change'); lembrar('#kieDuracao', 'duracao', 'change'); lembrar('#kieRes', 'resolucao', 'change');
   lembrar('#kieUso', 'usoImagem', 'change');
+  // mapa do personagem
+  $('#kiePerfil').onchange = (e) => { f.perfilId = e.target.value; salvarFormKie(); desenharKie(); };
+  $('#kieNovoPerfil').onclick = () => abrirNovoPerfil();
+  if ($('#kieSalvarDna')) $('#kieSalvarDna').onclick = async () => {
+    try { await api(`/api/kie/perfis/${f.perfilId}`, { method: 'PUT', corpo: { dna: $('#kieDna').value } }); kz.perfis = await api('/api/kie/perfis'); toast('Descrição salva.', 'ok'); } catch (e) { toast(e.message, 'erro'); }
+  };
+  if ($('#kieApagarPerfil')) $('#kieApagarPerfil').onclick = async () => {
+    if (!confirm('Apagar este mapa? Os vídeos já gerados continuam.')) return;
+    await api(`/api/kie/perfis/${f.perfilId}`, { method: 'DELETE' });
+    f.perfilId = ''; salvarFormKie(); kz.perfis = await api('/api/kie/perfis'); desenharKie();
+  };
+  if ($('#kieCancelarCont')) $('#kieCancelarCont').onclick = () => { kz.continuacao = null; kz.imagens = []; desenharKie(); };
+
   $('#kieModelo').onchange = (e) => { f.modelo = e.target.value; salvarFormKie(); kz.imagens = kz.imagens.slice(0, (kz.modelos.find((x) => x.id === f.modelo) || m).maxImagens); desenharKie(); };
 
   // imagens
@@ -3205,7 +3237,7 @@ function desenharKie() {
     if (!$('#kieIdeia').value.trim()) return toast('Escreva a sua ideia primeiro.', 'erro');
     b.disabled = true; b.textContent = '✦ Escrevendo…';
     try {
-      const r = await api('/api/kie/prompt', { corpo: { ideia: $('#kieIdeia').value, modelo: f.modelo, comFala: $('#kieFala').checked, aspecto: f.aspecto, duracao: f.duracao } });
+      const r = await api('/api/kie/prompt', { corpo: { ideia: $('#kieIdeia').value, modelo: f.modelo, comFala: $('#kieFala').checked, aspecto: f.aspecto, duracao: f.duracao, perfilId: f.perfilId || null, anterior: kz.continuacao?.prompt || null } });
       $('#kiePrompt').value = r.prompt; f.prompt = r.prompt; salvarFormKie();
     } catch (err) { toast(err.message, 'erro'); }
     b.disabled = false; b.textContent = '✦ Escrever prompt com IA';
@@ -3219,8 +3251,10 @@ function desenharKie() {
     try {
       const r = await api('/api/kie/gerar', { corpo: {
         modelo: m.id, prompt, imagens: kz.imagens.map((x) => x.nome), usoImagem: f.usoImagem, aspecto: f.aspecto,
-        duracao: f.duracao, resolucao: f.resolucao, audio: f.audio !== false,
+        duracao: f.duracao, resolucao: f.resolucao, audio: f.audio !== false, perfilId: f.perfilId || null,
+        ...(kz.continuacao ? { usoImagem: 'quadro' } : {}),
       } });
+      kz.continuacao = null;
       toast('Enviado ao Kie.ai. Você pode continuar usando o estúdio enquanto gera.', 'ok');
       await desenharHistoricoKie();
       acompanharKie(r.job.id);
@@ -3240,11 +3274,12 @@ async function desenharHistoricoKie() {
           : `<div class="kie-msg"><div class="spinner"></div><span class="mono" data-msg>gerando…</span></div>`}</div>
       <div class="kie-info">
         <b>${esc(x.modeloNome)}</b>
+        ${x.perfilNome ? `<small>🧬 ${esc(x.perfilNome)}</small>` : ''}
         <small class="mono">${quando(x.criado)} · ${esc(x.opcoes?.aspecto || '')} · ${x.duracao ? x.duracao.toFixed(1) + 's' : (x.opcoes?.duracao || '') + 's'}${x.custoCreditos != null ? ` · ${x.custoCreditos} créd. (US$ ${x.custoDolar?.toFixed(2)})` : ''}</small>
         <p title="${esc(x.prompt)}">${esc(x.prompt)}</p>
         <div class="voz-take-acoes">
           <button class="btn mini" data-a="reusar" title="Coloca este prompt e modelo no formulário">↻ Reusar prompt</button>
-          ${x.status === 'pronto' ? `<button class="btn mini primario" data-a="editor">✂ Abrir no Editor</button><a class="btn mini" href="/arquivos/midia/${encodeURIComponent(x.midia)}" download>⬇</a>` : ''}
+          ${x.status === 'pronto' ? `<button class="btn mini" data-a="continuar" title="Gera o próximo clipe começando do último quadro deste">➡ Continuar</button><button class="btn mini primario" data-a="editor">✂ Abrir no Editor</button><a class="btn mini" href="/arquivos/midia/${encodeURIComponent(x.midia)}" download>⬇</a>` : ''}
           ${x.status !== 'gerando' ? '<button class="btn mini perigo" data-a="tirar" title="Tirar da lista (o vídeo continua na Mídia)">✕</button>' : ''}
         </div>
       </div>
@@ -3257,6 +3292,17 @@ async function desenharHistoricoKie() {
         Object.assign(kz.form, { modelo: x.modelo, prompt: x.prompt, ...x.opcoes });
         delete kz.form.imagens;
         salvarFormKie(); desenharKie(); toast('Prompt e ajustes colocados no formulário.');
+      } else if (b.dataset.a === 'continuar') {
+        try {
+          const r = await api('/api/kie/continuar', { corpo: { id: x.id } });
+          kz.imagens = [r.imagem];
+          kz.continuacao = { prompt: r.anterior.prompt };
+          Object.assign(kz.form, { modelo: r.anterior.modelo, ...(r.anterior.opcoes || {}), usoImagem: 'quadro', perfilId: r.anterior.perfilId || kz.form.perfilId, ideia: '', prompt: '' });
+          delete kz.form.imagens;
+          salvarFormKie(); desenharKie();
+          $('#kieIdeia')?.focus();
+          toast('Escreva o que acontece em seguida e clique em ✦ Escrever prompt com IA.', 'ok');
+        } catch (e) { toast(e.message, 'erro'); }
       } else if (b.dataset.a === 'editor') {
         await carregarMidia(); irPara('editor'); toast('O vídeo está na lista de Mídia (à esquerda). Arraste para a timeline.', 'ok');
       } else if (b.dataset.a === 'tirar') {
@@ -3265,6 +3311,48 @@ async function desenharHistoricoKie() {
       }
     });
   });
+}
+
+// criar mapa: fotos SÓ do personagem (rosto, corpo, roupa) + notas → a IA escreve a descrição fixa
+function abrirNovoPerfil() {
+  const fotos = [];
+  $('#modal').innerHTML = `<div class="modal-caixa simples"><button class="fechar">×</button>
+    <h2>🧬 Novo mapa do personagem</h2>
+    <p class="ajuda">Envie de 1 a 4 fotos <b>só do personagem</b> (rosto de frente, corpo inteiro, a roupa). Elas vão como referência em todos os vídeos com este mapa, e a IA escreve uma descrição fixa para manter as mesmas características.</p>
+    <label>Nome<input id="npNome" placeholder="Ex.: Ana — atleta UGC"></label>
+    <div class="kie-imgs" id="npFotos"></div>
+    <label class="btn" style="width:max-content">＋ Fotos do personagem<input type="file" id="npArq" accept="image/png,image/jpeg,image/webp" multiple hidden></label>
+    <label>Detalhes que não aparecem na foto <small>(opcional)</small>
+      <textarea id="npNotas" rows="3" placeholder="Ex.: brasileira, 28 anos, voz animada e simpática, sempre com top cinza; produto: pote preto com tampa dourada"></textarea></label>
+    <button class="btn primario" id="npCriar">✦ Criar mapa (a IA analisa as fotos)</button>
+  </div>`;
+  $('#modal').hidden = false;
+  $('#modal .fechar').onclick = fecharModal;
+  const desenharFotos = () => {
+    $('#npFotos').innerHTML = fotos.map((im, i) => `<div class="kie-img" style="background-image:url('${im.url}')"><button data-i="${i}">×</button></div>`).join('');
+    $$('#npFotos button').forEach((b) => b.onclick = () => { fotos.splice(+b.dataset.i, 1); desenharFotos(); });
+  };
+  $('#npArq').onchange = async (e) => {
+    for (const file of [...e.target.files].slice(0, 4 - fotos.length)) {
+      const r = await fetch(`/api/kie/imagem?nome=${encodeURIComponent(file.name)}`, { method: 'POST', body: file }).then((x) => x.json());
+      if (r.erro) toast(r.erro, 'erro'); else fotos.push(r);
+    }
+    desenharFotos();
+  };
+  $('#npCriar').onclick = async (e) => {
+    const b = e.currentTarget;
+    const nome = $('#npNome').value.trim();
+    if (!nome) return toast('Dê um nome ao mapa.', 'erro');
+    if (!fotos.length && !$('#npNotas').value.trim()) return toast('Envie fotos do personagem ou descreva.', 'erro');
+    b.disabled = true; b.textContent = '✦ A IA está analisando as fotos…';
+    try {
+      const p = await api('/api/kie/perfis', { corpo: { nome, imagens: fotos.map((x) => x.nome), notas: $('#npNotas').value } });
+      kz.perfis = await api('/api/kie/perfis');
+      kz.form.perfilId = p.id; salvarFormKie();
+      fecharModal(); desenharKie();
+      toast(`Mapa “${p.nome}” criado. Os próximos vídeos usam este personagem.`, 'ok');
+    } catch (err) { toast(err.message, 'erro'); b.disabled = false; b.textContent = '✦ Criar mapa (a IA analisa as fotos)'; }
+  };
 }
 
 function acompanharKie(id) {
