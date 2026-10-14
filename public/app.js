@@ -2827,12 +2827,22 @@ const salvarVoz = (imediato) => {
   if (imediato) return f();
   vz.salvarT = setTimeout(f, 500);
 };
-const contarPalavras = (t) => t.replace(/\[[^\]]*\]/g, ' ').split(/\s+/).filter(Boolean).length;
+// mesmas contas do servidor: ~2,3 palavras por segundo, no máximo 1000 palavras
+const MAX_PALAVRAS_VOZ = 1000;
+function alvoVoz(l, duracaoVideo) {
+  const ritmo = 2.3 * Math.min(1.2, Math.max(0.7, +l.velocidade || 1));
+  const lim = (n) => Math.max(4, Math.min(MAX_PALAVRAS_VOZ, Math.round(n)));
+  if (l.modoTempo === 'palavras') return lim(+l.palavrasAlvo || 150);
+  if (l.modoTempo === 'tempo') return lim((+l.duracaoAlvo || 60) * ritmo);
+  return lim((duracaoVideo - 0.6) * ritmo);
+}
+const fmtDur = (s) => (s >= 60 ? `${Math.floor(s / 60)}min${String(Math.round(s % 60)).padStart(2, '0')}s` : `${Math.round(s)}s`);
+const contarPalavras = (t) =>t.replace(/\[[^\]]*\]/g, ' ').split(/\s+/).filter(Boolean).length;
 
 function desenharEstudioVoz() {
   const { p, l } = vz;
   const { largura: W, altura: H, duracao } = p.ajustes;
-  const alvo = Math.max(4, Math.round((duracao - 0.6) * 2.3 * (+l.velocidade || 1)));
+  const alvo = alvoVoz(l, duracao);
   const nTakes = (l.takes || []).length;
   $('#vozGrade').innerHTML = `
     <section class="voz-col voz-video">
@@ -2852,6 +2862,19 @@ function desenharEstudioVoz() {
         <label>Tom<input id="vzTom" list="vzTons" value="${esc(l.tom)}" placeholder="Confiante e energético"><datalist id="vzTons">${TONS_VOZ.map((t) => `<option value="${esc(t)}">`).join('')}</datalist></label>
         <label>Chamada final (CTA)<input id="vzCta" value="${esc(l.cta)}" placeholder="Ex.: Clique em saiba mais"></label>
       </div>
+      <div class="voz-tempo">
+        <label>Duração da fala
+          <select id="vzModoTempo">
+            <option value="video" ${l.modoTempo === 'video' ? 'selected' : ''}>Ajustar ao tempo do vídeo (${duracao}s)</option>
+            <option value="tempo" ${l.modoTempo === 'tempo' ? 'selected' : ''}>Definir o tempo</option>
+            <option value="palavras" ${l.modoTempo === 'palavras' ? 'selected' : ''}>Definir nº de palavras</option>
+          </select></label>
+        <label id="vzCampoTempo" ${l.modoTempo === 'tempo' ? '' : 'hidden'}>Segundos
+          <input type="number" id="vzDuracaoAlvo" min="3" max="430" step="1" value="${+l.duracaoAlvo || 60}"></label>
+        <label id="vzCampoPalavras" ${l.modoTempo === 'palavras' ? '' : 'hidden'}>Palavras (máx. ${MAX_PALAVRAS_VOZ})
+          <input type="number" id="vzPalavrasAlvo" min="5" max="${MAX_PALAVRAS_VOZ}" step="5" value="${+l.palavrasAlvo || 150}"></label>
+      </div>
+      <p class="ajuda" id="vzTempoInfo"></p>
       <label class="check"><input type="checkbox" id="vzTags" ${l.comTags ? 'checked' : ''}> usar tags de emoção da ElevenLabs ([excited], [whispers]…)</label>
       <button class="btn primario" id="vzGerarRoteiro">👁 Assistir ao vídeo e gerar roteiro</button>
       <div id="vzJob" class="voz-job" hidden><div class="barra-prog"><i></i></div><small class="mono"></small></div>
@@ -2917,13 +2940,28 @@ function desenharEstudioVoz() {
   ligar('#vzTags', 'comTags', 'change', (el) => el.checked);
   ligar('#vzModelo', 'modelo', 'change');
   const contagem = () => {
+    const alvo = alvoVoz(l, duracao);
+    const ritmo = 2.3 * (+l.velocidade || 1);
     const n = contarPalavras($('#vzTexto').value);
-    const seg = n / (2.4 * (+l.velocidade || 1));
+    const seg = n / ritmo;
     const el = $('#vzContagem');
-    el.textContent = `${n}/${alvo} palavras · ~${seg.toFixed(1)}s de fala`;
-    el.className = n > alvo ? 'erro-txt' : '';
+    el.textContent = `${n}/${alvo} palavras · ~${fmtDur(seg)} de fala`;
+    // no modo "vídeo" passar do alvo é problema; nos outros é só referência (até 1000)
+    el.className = (l.modoTempo === 'video' ? n > alvo : n > MAX_PALAVRAS_VOZ) ? 'erro-txt' : '';
+    const segAlvo = alvo / ritmo;
+    $('#vzTempoInfo').textContent = l.modoTempo === 'video'
+      ? `A IA escreve até ${alvo} palavras para caber nos ${duracao}s do vídeo.`
+      : `A IA escreve ~${alvo} palavras (~${fmtDur(segAlvo)} de fala).${segAlvo > duracao + 0.5 ? ` O vídeo tem ${duracao}s: depois de colocar a voz, use “Sincronizar a animação” para o vídeo ganhar o tempo da fala.` : ''}`;
   };
   contagem();
+  $('#vzModoTempo').onchange = (e) => {
+    l.modoTempo = e.target.value;
+    $('#vzCampoTempo').hidden = l.modoTempo !== 'tempo';
+    $('#vzCampoPalavras').hidden = l.modoTempo !== 'palavras';
+    contagem(); salvarVoz();
+  };
+  $('#vzDuracaoAlvo').oninput = (e) => { l.duracaoAlvo = Math.max(3, Math.min(430, +e.target.value || 60)); contagem(); salvarVoz(); };
+  $('#vzPalavrasAlvo').oninput = (e) => { l.palavrasAlvo = Math.max(5, Math.min(MAX_PALAVRAS_VOZ, +e.target.value || 150)); contagem(); salvarVoz(); };
   $('#vzTexto').addEventListener('input', (e) => { l.texto = e.target.value; contagem(); salvarVoz(); });
   $$('.voz-tags button').forEach((b) => b.onclick = () => {
     const t = $('#vzTexto');
