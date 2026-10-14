@@ -75,6 +75,7 @@ function irPara(vista) {
   $$('.vista').forEach((v) => v.classList.toggle('ativa', v.id === `vista-${vista}`));
   if (vista === 'projetos' && !estado.projetoAberto) carregarProjetos();
   if (vista === 'voz') abrirEstudioVoz();
+  if (vista === 'kie') abrirKie();
   if (vista === 'editor') { carregarMidia().then(() => { ajustarPalco(); mostrarQuadro(); }); ajustarPalco(); }
   history.replaceState(null, '', `#${vista}${vista === 'projetos' && estado.projetoAberto ? '/' + estado.projetoAberto : ''}`);
 }
@@ -103,7 +104,8 @@ setInterval(async () => {
       const g = n('geracao');
       const r = n('render') + n('exportacao');
       const a = n('audio');
-      el.textContent = [g && `${g} gerando`, a && `${a} no áudio`, r && `${r} renderizando`].filter(Boolean).join(' · ');
+      const k = n('kie');
+      el.textContent = [g && `${g} gerando`, a && `${a} no áudio`, k && `${k} no Kie.ai`, r && `${r} renderizando`].filter(Boolean).join(' · ');
     }
   } catch {}
 }, 3000);
@@ -3094,10 +3096,195 @@ function mostrarVozColocada(p) {
   };
 }
 
+// ===================================================================== CENAS IA (Kie.ai)
+// clipes realistas (Veo 3.1, Kling, Seedance, Grok) pagos por geração no Kie.ai → caem na Mídia do Editor
+const kz = {
+  modelos: null, cfg: null, imagens: [], acompanhando: new Set(),
+  form: (() => { try { return JSON.parse(localStorage.getItem('kieForm') || '{}'); } catch { return {}; } })(),
+};
+const salvarFormKie = () => { try { localStorage.setItem('kieForm', JSON.stringify(kz.form)); } catch {} };
+
+async function abrirKie() {
+  if (!kz.modelos) kz.modelos = await api('/api/kie/modelos');
+  kz.cfg = await api('/api/kie/config');
+  desenharKie();
+  desenharHistoricoKie();
+}
+
+function desenharKie() {
+  const f = kz.form;
+  const m = kz.modelos.find((x) => x.id === f.modelo) || kz.modelos[0];
+  f.modelo = m.id;
+  if (!m.aspectos.includes(f.aspecto)) f.aspecto = m.aspectos[0];
+  if (!m.duracoes.includes(+f.duracao)) f.duracao = m.duracoes[0];
+  if (!m.resolucoes.includes(f.resolucao)) f.resolucao = m.resolucoes[0];
+  const grupos = [...new Set(kz.modelos.map((x) => x.grupo))];
+  const usaUso = ['veo3_fast', 'veo3_lite', 'bytedance/seedance-2-fast'].includes(m.id);
+  $('#kieForm').innerHTML = `
+    <div class="kie-chave">${kz.cfg.configurado
+      ? `<span>🔑 Chave Kie.ai ••••${esc(kz.cfg.final)}</span><span class="mono" id="kieSaldo">saldo…</span><span class="espaco"></span>
+         <button class="btn mini" id="kieTrocar">Trocar</button>`
+      : `<label>Chave do Kie.ai <small>(<a href="https://kie.ai/api-key" target="_blank" rel="noopener">pegar em kie.ai → API Key</a>; fica salva só neste PC)</small>
+           <div class="voz-linha"><input type="password" id="kieChave" placeholder="cole a chave aqui" autocomplete="off"><button class="btn primario" id="kieSalvarChave">Salvar</button></div></label>`}
+    </div>
+
+    <label>Modelo
+      <select id="kieModelo">${grupos.map((g) => `<optgroup label="${esc(g)}">${kz.modelos.filter((x) => x.grupo === g).map((x) => `<option value="${esc(x.id)}" ${x.id === m.id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</optgroup>`).join('')}</select></label>
+    <p class="ajuda kie-dica">💡 ${esc(m.dica)} · <b>Preço:</b> ${esc(m.estimativa)}</p>
+
+    <label>Sua ideia <small>(em português)</small>
+      <textarea id="kieIdeia" rows="3" placeholder="Ex.: mulher de 28 anos na cozinha, segurando o pote do produto, falando animada que toma todo dia depois do treino">${esc(f.ideia || '')}</textarea></label>
+    <div class="voz-linha">
+      <label class="check"><input type="checkbox" id="kieFala" ${f.comFala !== false ? 'checked' : ''}> pessoa falando (fala em português)</label>
+      <button class="btn" id="kiePromptIA">✦ Escrever prompt com IA</button>
+    </div>
+    <label>Prompt do vídeo <small>(é isso que vai para o modelo)</small>
+      <textarea id="kiePrompt" rows="7" placeholder="Escreva o prompt ou gere com a IA acima.">${esc(f.prompt || '')}</textarea></label>
+
+    <div>
+      <div class="kie-imgs" id="kieImgs">${kz.imagens.map((im, i) => `<div class="kie-img" style="background-image:url('${im.url}')"><button data-i="${i}" title="Remover">×</button></div>`).join('')}
+        ${kz.imagens.length < m.maxImagens ? `<label class="kie-img kie-add" title="Foto do produto, da pessoa ou do cenário">＋<small>imagem</small><input type="file" id="kieArq" accept="image/png,image/jpeg,image/webp" multiple hidden></label>` : ''}</div>
+      <p class="ajuda">Até ${m.maxImagens} imagem(ns): foto do produto, da pessoa ou do cenário (opcional).</p>
+      ${usaUso && kz.imagens.length ? `<label>Como usar as imagens<select id="kieUso">
+        <option value="quadro" ${f.usoImagem !== 'referencia' ? 'selected' : ''}>Primeiro quadro (o vídeo começa nessa imagem)</option>
+        <option value="referencia" ${f.usoImagem === 'referencia' ? 'selected' : ''}>Referência (manter este produto/pessoa na cena)</option></select></label>` : ''}
+    </div>
+
+    <div class="voz-linha">
+      <label>Formato<select id="kieAspecto">${m.aspectos.map((a) => `<option ${a === f.aspecto ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
+      <label>Duração<select id="kieDuracao">${m.duracoes.map((d) => `<option value="${d}" ${d === +f.duracao ? 'selected' : ''}>${d}s</option>`).join('')}</select></label>
+      <label>Qualidade<select id="kieRes">${m.resolucoes.map((r) => `<option value="${r}" ${r === f.resolucao ? 'selected' : ''}>${esc(m.rotuloResolucao?.[r] || r)}</option>`).join('')}</select></label>
+    </div>
+    ${m.audio ? `<label class="check"><input type="checkbox" id="kieAudio" ${f.audio !== false ? 'checked' : ''}> gerar áudio junto</label>` : '<p class="ajuda">Este modelo já gera o vídeo com áudio.</p>'}
+    <button class="btn primario grande" id="kieGerar" ${kz.cfg.configurado ? '' : 'disabled'}>🎬 Gerar vídeo (usa créditos do Kie.ai)</button>
+    <p class="ajuda">O vídeo pronto vai direto para a <b>Mídia do Editor</b>. O custo real aparece em cada resultado. Comece testando no modelo mais barato e só refaça no melhor quando o prompt estiver bom.</p>`;
+
+  // chave
+  if (kz.cfg.configurado) {
+    api('/api/kie/saldo').then((s) => { if ($('#kieSaldo')) $('#kieSaldo').textContent = `saldo: ${s.creditos} créditos (US$ ${s.dolares.toFixed(2)})`; })
+      .catch((e) => { if ($('#kieSaldo')) $('#kieSaldo').textContent = e.message; });
+    $('#kieTrocar').onclick = () => { kz.cfg = { configurado: false }; desenharKie(); };
+  } else {
+    $('#kieSalvarChave').onclick = async () => {
+      const chave = $('#kieChave').value.trim();
+      if (!chave) return toast('Cole a chave primeiro.', 'erro');
+      try {
+        const r = await api('/api/kie/config', { method: 'PUT', corpo: { chave } });
+        toast(`Kie.ai conectado! Saldo: ${r.saldo} créditos.`, 'ok');
+        kz.cfg = await api('/api/kie/config');
+        desenharKie();
+      } catch (e) { toast(e.message, 'erro'); }
+    };
+  }
+
+  const lembrar = (sel, k, ev = 'input', ler = (el) => el.value) => { const el = $(sel); if (el) el.addEventListener(ev, () => { f[k] = ler(el); salvarFormKie(); }); };
+  lembrar('#kieIdeia', 'ideia'); lembrar('#kiePrompt', 'prompt');
+  lembrar('#kieFala', 'comFala', 'change', (el) => el.checked);
+  lembrar('#kieAudio', 'audio', 'change', (el) => el.checked);
+  lembrar('#kieAspecto', 'aspecto', 'change'); lembrar('#kieDuracao', 'duracao', 'change'); lembrar('#kieRes', 'resolucao', 'change');
+  lembrar('#kieUso', 'usoImagem', 'change');
+  $('#kieModelo').onchange = (e) => { f.modelo = e.target.value; salvarFormKie(); kz.imagens = kz.imagens.slice(0, (kz.modelos.find((x) => x.id === f.modelo) || m).maxImagens); desenharKie(); };
+
+  // imagens
+  $$('#kieImgs button').forEach((b) => b.onclick = () => { kz.imagens.splice(+b.dataset.i, 1); desenharKie(); });
+  const arq = $('#kieArq');
+  if (arq) arq.onchange = async () => {
+    for (const file of [...arq.files].slice(0, m.maxImagens - kz.imagens.length)) {
+      try {
+        const r = await fetch(`/api/kie/imagem?nome=${encodeURIComponent(file.name)}`, { method: 'POST', body: file }).then((x) => x.json());
+        if (r.erro) throw new Error(r.erro);
+        kz.imagens.push(r);
+      } catch (e) { toast(e.message, 'erro'); }
+    }
+    desenharKie();
+  };
+
+  // prompt com IA
+  $('#kiePromptIA').onclick = async (e) => {
+    const b = e.currentTarget;
+    if (!$('#kieIdeia').value.trim()) return toast('Escreva a sua ideia primeiro.', 'erro');
+    b.disabled = true; b.textContent = '✦ Escrevendo…';
+    try {
+      const r = await api('/api/kie/prompt', { corpo: { ideia: $('#kieIdeia').value, modelo: f.modelo, comFala: $('#kieFala').checked, aspecto: f.aspecto, duracao: f.duracao } });
+      $('#kiePrompt').value = r.prompt; f.prompt = r.prompt; salvarFormKie();
+    } catch (err) { toast(err.message, 'erro'); }
+    b.disabled = false; b.textContent = '✦ Escrever prompt com IA';
+  };
+
+  // gerar
+  $('#kieGerar').onclick = async () => {
+    const prompt = $('#kiePrompt').value.trim();
+    if (!prompt) return toast('Escreva o prompt (ou gere com a IA).', 'erro');
+    if (!confirm(`Gerar com ${m.nome}?\n\nPreço aproximado: ${m.estimativa}.\nOs créditos são descontados da sua conta Kie.ai.`)) return;
+    try {
+      const r = await api('/api/kie/gerar', { corpo: {
+        modelo: m.id, prompt, imagens: kz.imagens.map((x) => x.nome), usoImagem: f.usoImagem, aspecto: f.aspecto,
+        duracao: f.duracao, resolucao: f.resolucao, audio: f.audio !== false,
+      } });
+      toast('Enviado ao Kie.ai. Você pode continuar usando o estúdio enquanto gera.', 'ok');
+      await desenharHistoricoKie();
+      acompanharKie(r.job.id);
+    } catch (e) { toast(e.message, 'erro'); }
+  };
+}
+
+async function desenharHistoricoKie() {
+  const h = await api('/api/kie/historico');
+  const el = $('#kieHistorico');
+  if (!el) return;
+  el.innerHTML = h.length ? h.map((x) => `
+    <div class="kie-item ${x.status}" data-id="${esc(x.id)}">
+      <div class="kie-midia">${x.status === 'pronto' && x.midia
+        ? `<video src="/arquivos/midia/${encodeURIComponent(x.midia)}" controls preload="metadata" playsinline></video>`
+        : x.status === 'erro' ? `<div class="kie-msg erro-txt">⚠ ${esc(x.erro || 'falhou')}</div>`
+          : `<div class="kie-msg"><div class="spinner"></div><span class="mono" data-msg>gerando…</span></div>`}</div>
+      <div class="kie-info">
+        <b>${esc(x.modeloNome)}</b>
+        <small class="mono">${quando(x.criado)} · ${esc(x.opcoes?.aspecto || '')} · ${x.duracao ? x.duracao.toFixed(1) + 's' : (x.opcoes?.duracao || '') + 's'}${x.custoCreditos != null ? ` · ${x.custoCreditos} créd. (US$ ${x.custoDolar?.toFixed(2)})` : ''}</small>
+        <p title="${esc(x.prompt)}">${esc(x.prompt)}</p>
+        <div class="voz-take-acoes">
+          <button class="btn mini" data-a="reusar" title="Coloca este prompt e modelo no formulário">↻ Reusar prompt</button>
+          ${x.status === 'pronto' ? `<button class="btn mini primario" data-a="editor">✂ Abrir no Editor</button><a class="btn mini" href="/arquivos/midia/${encodeURIComponent(x.midia)}" download>⬇</a>` : ''}
+          ${x.status !== 'gerando' ? '<button class="btn mini perigo" data-a="tirar" title="Tirar da lista (o vídeo continua na Mídia)">✕</button>' : ''}
+        </div>
+      </div>
+    </div>`).join('') : '<div class="vazio-grande">Nenhum vídeo gerado ainda.<br><br>Escreva a ideia, gere o prompt com a IA e clique em 🎬 Gerar.</div>';
+  for (const x of h) if (x.status === 'gerando') acompanharKie(x.id);
+  $$('.kie-item', el).forEach((card) => {
+    const x = h.find((y) => y.id === card.dataset.id);
+    $$('[data-a]', card).forEach((b) => b.onclick = async () => {
+      if (b.dataset.a === 'reusar') {
+        Object.assign(kz.form, { modelo: x.modelo, prompt: x.prompt, ...x.opcoes });
+        delete kz.form.imagens;
+        salvarFormKie(); desenharKie(); toast('Prompt e ajustes colocados no formulário.');
+      } else if (b.dataset.a === 'editor') {
+        await carregarMidia(); irPara('editor'); toast('O vídeo está na lista de Mídia (à esquerda). Arraste para a timeline.', 'ok');
+      } else if (b.dataset.a === 'tirar') {
+        await api(`/api/kie/historico/${encodeURIComponent(x.id)}`, { method: 'DELETE' });
+        desenharHistoricoKie();
+      }
+    });
+  });
+}
+
+function acompanharKie(id) {
+  if (kz.acompanhando.has(id)) return;
+  kz.acompanhando.add(id);
+  acompanharJob(id, (j) => {
+    const span = $(`.kie-item[data-id="${id}"] [data-msg]`);
+    if (span) span.textContent = j.ultima || 'gerando…';
+  }).then((j) => {
+    kz.acompanhando.delete(id);
+    if (j.status === 'ok') { toast('Vídeo do Kie.ai pronto! ' + (j.ultima || ''), 'ok'); carregarMidia(); }
+    else if (j.erro && !/não encontrada/.test(j.erro)) toast('Kie.ai: ' + j.erro, 'erro');
+    if (estado.vista === 'kie') { desenharHistoricoKie(); api('/api/kie/saldo').then((s) => { if ($('#kieSaldo')) $('#kieSaldo').textContent = `saldo: ${s.creditos} créditos (US$ ${s.dolares.toFixed(2)})`; }).catch(() => {}); }
+  });
+}
+
 function seguirHash() {
   const [vista, id] = location.hash.slice(1).split('/');
   if (vista === 'projetos' && id) abrirProjeto(id);
-  else if (['modelos', 'projetos', 'voz', 'editor'].includes(vista)) irPara(vista);
+  else if (['modelos', 'projetos', 'voz', 'kie', 'editor'].includes(vista)) irPara(vista);
 }
 window.addEventListener('hashchange', seguirHash);
 

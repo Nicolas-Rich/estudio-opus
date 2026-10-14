@@ -280,6 +280,17 @@ Use esta aba quando quiser uma locução de locutor profissional. A voz é grava
 
 > 💡 Cada take gasta créditos da ElevenLabs. Acerte o roteiro antes de gerar. Também dá para baixar o MP3 de cada take (⬇).
 
+### 5.8 Cenas IA (aba 🎬 Cenas IA, via Kie.ai)
+Use esta aba para cenas **realistas** que a animação em código não faz: pessoas falando (UGC), produto em uso, ambientes.
+1. Crie a conta em **kie.ai**, compre créditos (pré-pago, 1 crédito = US$ 0,005) e copie a chave em **kie.ai → API Key**. Cole no topo da aba; ela fica salva só no seu PC.
+2. Escolha o modelo: **Veo 3.1 Fast** (pessoa falando com áudio, ~US$ 0,40 por vídeo de 8s), **Veo 3.1 Lite** (mais barato), **Veo 3.1 Quality** (~US$ 2), **Kling 3.0**, **Seedance 2.0 Fast** ou **Grok Imagine**.
+3. Escreva a ideia em português e clique em **✦ Escrever prompt com IA**: o Claude monta o prompt profissional (em inglês, com a fala em português).
+4. Envie fotos do produto ou da pessoa (opcional) e escolha se são o **primeiro quadro** ou uma **referência**.
+5. Clique em **🎬 Gerar vídeo**. Leva de 1 a 5 minutos; o custo real aparece em cada resultado.
+6. O vídeo vai direto para a **Mídia do Editor**: monte com as animações, a voz e as legendas.
+
+> 💡 Teste o prompt no modelo mais barato e só gere no melhor quando estiver bom. Se a pessoa do vídeo for gerada por IA, identifique o anúncio como conteúdo de IA (regras do CONAR e do Meta Ads).
+
 ---
 
 ## Módulo 6 — Renderizar o MP4

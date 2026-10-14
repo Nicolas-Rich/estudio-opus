@@ -16,6 +16,7 @@
       <button data-vista="modelos" class="ativa">Modelos <span class="cont" id="contModelos">…</span></button>
       <button data-vista="projetos">Projetos <span class="cont" id="contProjetos">0</span></button>
       <button data-vista="voz">🎙 Voz</button>
+      <button data-vista="kie">🎬 Cenas IA</button>
       <button data-vista="editor">Editor</button>
     </nav>
     <div class="topo-dir">
@@ -64,6 +65,20 @@
       <label class="voz-proj">Projeto<select id="vzProjeto"></select></label>
     </div>
     <div class="voz-grade" id="vozGrade"></div>
+  </main>
+
+  <!-- ===================== CENAS IA (Kie.ai) ===================== -->
+  <main id="vista-kie" class="vista">
+    <div class="voz-topo">
+      <div>
+        <h1>Cenas IA <small class="kie-selo">via Kie.ai</small></h1>
+        <p class="sub">Vídeos realistas (pessoas, UGC, produto em cena) com Veo 3.1, Kling, Seedance e Grok. Pago por geração na sua conta Kie.ai; o vídeo cai direto na Mídia do Editor.</p>
+      </div>
+    </div>
+    <div class="kie-grade">
+      <section class="voz-col" id="kieForm"></section>
+      <section class="voz-col"><h3>Resultados</h3><div id="kieHistorico" class="kie-lista"></div></section>
+    </div>
   </main>
 
   <!-- ===================== EDITOR ===================== -->

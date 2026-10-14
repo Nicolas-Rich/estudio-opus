@@ -76,6 +76,9 @@ Escolha a fonte (**ElevenLabs** recomendado, síntese grátis ou sua biblioteca)
 4. Cada geração vira um **take** que você pode ouvir com o vídeo ou baixar.
 5. **✔ Colocar no vídeo** transforma o take na voz do projeto. Depois, se quiser, **sincronize a animação** com essa voz.
 
+### 🎬 Cenas IA (Kie.ai)
+Vídeos realistas (pessoas falando, UGC, produto em cena) com Veo 3.1, Kling 3.0, Seedance 2.0 e Grok, pagos por geração na sua conta **kie.ai**. Cole a chave no topo da aba (fica só neste PC), escreva a ideia, gere o prompt com a IA, envie fotos se quiser e gere. O vídeo vai para a Mídia do Editor e o custo real aparece em cada resultado.
+
 ### 3. Editor (estilo CapCut)
 **Timeline**: régua de tempo e **cabeçote** (a linha laranja). Clique ou arraste na régua para navegar. As faixas são:
 🎬 Vídeo · 🅣 Textos · 💬 Legendas · 🎵 Trilha · 🎙 Áudios.

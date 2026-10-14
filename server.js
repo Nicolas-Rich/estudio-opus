@@ -16,6 +16,7 @@ import { exportarEdicao } from './lib/montagem.js';
 import { transcrever } from './lib/transcricao.js';
 import { gerarPromptDeIdeia, sugerirExtras } from './lib/assistente.js';
 import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
+import { registrarRotasKie } from './lib/rotas-kie.js';
 
 const RAIZ = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(RAIZ, 'awesome-opus5-5-videos');
@@ -626,6 +627,8 @@ audioHooks = registrarRotasAudio(app, {
   DADOS, PASTAS, lerProjeto, salvarProjeto, pastaProjeto, criarJob, msgJob, jobPublico, lerJson, gravarJson, slugify,
   montarPedido, montarSincronia, iniciarGeracao, renderizarHtml, BASE,
 });
+
+registrarRotasKie(app, { DADOS, PASTAS, criarJob, msgJob, jobPublico, lerJson, gravarJson, registrarMidia });
 
 // ---- jobs
 app.get('/api/jobs', (_req, res) => {

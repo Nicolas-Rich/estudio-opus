@@ -538,3 +538,29 @@ body.arrastando-midia .tl-clipes, body.arrastando-midia .tl-musica, body.arrasta
 .voz-selo { font-size: 11px; color: var(--ok); background: rgba(62,207,142,.12); padding: 1px 7px; border-radius: 99px; }
 .voz-mapa { position: relative; height: 10px; background: var(--painel); border: 1px solid var(--borda); border-radius: 4px; overflow: hidden; }
 .voz-mapa i { position: absolute; top: 1px; bottom: 1px; background: var(--acento); border-radius: 2px; opacity: .85; }
+
+/* ---------- cenas IA (Kie.ai) ---------- */
+#vista-kie { padding: 18px 22px; }
+.kie-selo { font-size: 12px; font-weight: 500; color: var(--texto-3); }
+.kie-grade { display: grid; grid-template-columns: minmax(340px, 460px) 1fr; gap: 16px; height: calc(100vh - 54px - 130px); min-height: 520px; }
+.kie-chave { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--painel-2); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.kie-chave label { flex: 1; }
+.kie-chave input { flex: 1; }
+.kie-dica { margin-top: -6px; }
+.kie-imgs { display: flex; gap: 8px; flex-wrap: wrap; }
+.kie-img { width: 74px; height: 74px; border-radius: 8px; background: #000 center/cover; border: 1px solid var(--borda); position: relative; }
+.kie-img button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0,0,0,.7); color: #fff; cursor: pointer; line-height: 1; }
+.kie-add { display: grid; place-items: center; align-content: center; cursor: pointer; color: var(--texto-2); font-size: 22px; background: var(--painel-2); border-style: dashed; }
+.kie-add small { font-size: 11px; }
+.kie-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; align-content: start; }
+.kie-item { border: 1px solid var(--borda); border-radius: 10px; overflow: hidden; background: var(--painel-2); display: flex; flex-direction: column; }
+.kie-item.erro { border-color: #6b2f2f; }
+.kie-midia { aspect-ratio: 9 / 12; background: #000; display: grid; place-items: center; }
+.kie-midia video { width: 100%; height: 100%; object-fit: contain; }
+.kie-msg { padding: 14px; text-align: center; font-size: 12px; display: grid; gap: 6px; }
+.kie-info { padding: 10px; display: grid; gap: 6px; }
+.kie-info b { font-size: 13px; }
+.kie-info small { color: var(--texto-3); font-size: 11px; }
+.kie-info p { margin: 0; font-size: 12px; color: var(--texto-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 1100px) { .kie-grade { grid-template-columns: 1fr; height: auto; } }
+.kie-lista .vazio-grande { grid-column: 1 / -1; }
