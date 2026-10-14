@@ -74,6 +74,7 @@ function irPara(vista) {
   $$('.abas button').forEach((b) => b.classList.toggle('ativa', b.dataset.vista === vista));
   $$('.vista').forEach((v) => v.classList.toggle('ativa', v.id === `vista-${vista}`));
   if (vista === 'projetos' && !estado.projetoAberto) carregarProjetos();
+  if (vista === 'voz') abrirEstudioVoz();
   if (vista === 'editor') { carregarMidia().then(() => { ajustarPalco(); mostrarQuadro(); }); ajustarPalco(); }
   history.replaceState(null, '', `#${vista}${vista === 'projetos' && estado.projetoAberto ? '/' + estado.projetoAberto : ''}`);
 }
@@ -224,7 +225,9 @@ function formularioCriacao(m) {
         <div class="linha" style="align-items:center">
           <b style="flex:1">🖼 Imagens (opcional)</b>
           <label class="btn mini" style="flex:none">＋ Adicionar imagens<input type="file" id="fImagens" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
+          <label class="btn mini" style="flex:none" title="Envie um vídeo para a IA recriar igual">🎞 Vídeo de referência<input type="file" id="fVideoRef" hidden accept="video/*,.gif"></label>
         </div>
+        <div id="fVideoRefBox" hidden></div>
         ${m ? '<label class="check"><input type="checkbox" id="fFiel" checked> ficar <b>fiel ao visual do vídeo original</b> (a IA vê um quadro dele)</label>' : ''}
         <p class="ajuda" style="margin:0"><b>Elemento</b> = entra no vídeo (logo, produto, foto). <b>Referência</b> = o Claude só copia o estilo. Ele vê as imagens antes de criar.</p>
         <div id="fListaImagens" class="lista-imagens"></div>
@@ -320,6 +323,46 @@ function ligarFormulario(m) {
   $('#fListaImagens').addEventListener('input', (e) => { if (e.target.dataset.desc != null) imagens[+e.target.dataset.desc].descricao = e.target.value; });
   const imagensPayload = () => imagens.map(({ id, papel, descricao }) => ({ id, papel, descricao }));
 
+  // ---------- vídeo de referência (recriar igual)
+  let videoRef = null;
+  const desenharVideoRef = () => {
+    const box = $('#fVideoRefBox');
+    box.hidden = !videoRef;
+    if (!videoRef) { box.innerHTML = ''; return; }
+    const r = videoRef;
+    box.innerHTML = `<div class="ref-video">
+      <div class="ref-topo"><b>🎞 ${esc(r.nomeOriginal)}</b><span class="mono">${r.duracao.toFixed(1)}s · ${r.largura}×${r.altura} · ${r.quadros.length} quadros</span>
+        <button type="button" class="btn mini perigo" id="fVideoRefRem">✕</button></div>
+      <div class="ref-quadros">${r.quadros.map((q) => `<figure><img src="${q.url}" alt=""><figcaption>${q.t.toFixed(1)}s</figcaption></figure>`).join('')}</div>
+      <p class="ajuda" style="margin:0">A IA vai ver esses quadros em sequência e recriar o vídeo com as mesmas cenas, tempos e estilo, trocando o conteúdo pela sua marca.</p>
+    </div>`;
+    $('#fVideoRefRem').onclick = () => { videoRef = null; desenharVideoRef(); };
+  };
+  $('#fVideoRef').onchange = async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    const box = $('#fVideoRefBox');
+    box.hidden = false;
+    box.innerHTML = '<p class="ajuda" style="margin:0">Enviando e extraindo os quadros do vídeo…</p>';
+    try {
+      const r = await fetch(`/api/video-referencia?nome=${encodeURIComponent(f.name)}`, { method: 'POST', body: f });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro);
+      videoRef = d;
+      // ajusta duração e formato para bater com o vídeo enviado
+      $('#fDuracao').value = Math.max(2, Math.round(d.duracao));
+      const prop = d.largura / d.altura;
+      const fmt = FORMATOS.reduce((a, b) => (Math.abs(b.largura / b.altura - prop) < Math.abs(a.largura / a.altura - prop) ? b : a));
+      $$('#fFormatos .formato').forEach((x) => x.classList.toggle('ativa', x.dataset.id === fmt.id));
+      desenharVideoRef();
+      toast(`Vídeo de referência pronto: ${d.quadros.length} quadros. Duração e formato ajustados para ${Math.round(d.duracao)}s · ${fmt.curto}.`, 'ok');
+    } catch (err) {
+      videoRef = null;
+      box.innerHTML = `<div class="erro-caixa">${esc(err.message)}</div>`;
+    }
+  };
+
   // ---------- assistente: ideia → prompt, e sugestão de instruções extras
   const ajustesDoForm = () => {
     const f = formatoPorId($('#fFormatos .ativa')?.dataset.id);
@@ -338,7 +381,7 @@ function ligarFormulario(m) {
     b.disabled = true;
     b.textContent = 'Claude escrevendo o prompt…';
     try {
-      const r = await api('/api/assistente', { corpo: { tipo: 'prompt', ideia, slug: $('#fFiel')?.checked === false ? undefined : m?.slug, ajustes: ajustesDoForm(), imagens: imagensPayload(), modelo: $('#fModelo').value } });
+      const r = await api('/api/assistente', { corpo: { tipo: 'prompt', ideia, slug: $('#fFiel')?.checked === false ? undefined : m?.slug, ajustes: ajustesDoForm(), imagens: imagensPayload(), videoRef: videoRef?.id, modelo: $('#fModelo').value } });
       promptAnterior = $('#fPrompt').value;
       $('#fPrompt').value = r.texto;
       $('#fDesfazerPrompt').hidden = false;
@@ -369,8 +412,8 @@ function ligarFormulario(m) {
     b.textContent = '✦ Sugerir instruções extras';
   };
   $('#fGerar').addEventListener('click', async () => {
-    const prompt = $('#fPrompt').value.trim();
-    if (!prompt) return toast('Escreva um prompt.', 'erro');
+    const prompt = $('#fPrompt').value.trim() || (videoRef ? 'Recrie o vídeo de referência enviado: mesma sequência de cenas, mesmos tempos, mesmo estilo visual e de movimento, trocando o conteúdo pela minha marca.' : '');
+    if (!prompt && !videoRef) return toast('Escreva um prompt (ou envie um vídeo de referência).', 'erro');
     const f = formatoPorId($('#fFormatos .ativa')?.dataset.id);
     const ajustes = {
       largura: f.largura, altura: f.altura, formatoNome: `${f.curto} ${f.nome}`, formato: f.id,
@@ -398,7 +441,7 @@ function ligarFormulario(m) {
         locucao = fim.resultado.locucao;
         $('#fGerar').textContent = `Locução transcrita (${fim.resultado.duracao.toFixed(1)}s) — criando…`;
       }
-      const r = await api('/api/projetos', { corpo: { slug: m?.slug, prompt, ajustes, modelo: $('#fModelo').value, nome: $('#fNome').value.trim(), locucao, imagens: imagensPayload(), fiel: $('#fFiel') ? $('#fFiel').checked : false } });
+      const r = await api('/api/projetos', { corpo: { slug: m?.slug, prompt, ajustes, modelo: $('#fModelo').value, nome: $('#fNome').value.trim(), locucao, imagens: imagensPayload(), videoRef: videoRef?.id, fiel: $('#fFiel') ? $('#fFiel').checked : false } });
       fecharModal();
       toast('Geração iniciada! Acompanhe no projeto.', 'ok');
       abrirProjeto(r.projeto.id);
@@ -545,10 +588,14 @@ function desenharDetalhe(p) {
           <button class="btn mini" id="pReiniciar" ${p.versaoAtual ? '' : 'disabled'}>↻ Reiniciar</button>
           <button class="btn mini" id="pComSom" ${p.versaoAtual && (p.audio.voz.arquivo || p.audio.efeitos.arquivo) ? '' : 'disabled'} title="Reinicia a animação tocando a voz e os efeitos gerados">🔊 Assistir com som</button>
           <a class="btn mini" href="/p/${p.id}/" target="_blank" rel="noopener">Abrir em nova aba ↗</a>
+          <span class="zoom-preview"><button class="btn mini" id="pMenor" title="Diminuir o vídeo (Ctrl + roda do mouse também)">－</button><button class="btn mini" id="pZoom" title="Voltar a caber na tela">100%</button><button class="btn mini" id="pMaior" title="Aumentar o vídeo (Ctrl + roda do mouse também)">＋</button></span>
+          <button class="btn mini" id="pPainel" title="Esconder/mostrar o painel lateral">⇔ Painel</button>
+          <button class="btn mini" id="pCheia" title="Tela cheia (Esc para sair)">⛶ Tela cheia</button>
           <span class="espaco"></span>
           <span class="mono">versão ${p.versaoAtual || '—'} de ${p.versoes.length}</span>
         </div>
       </div>
+      <div class="divisor" id="pDivisor" title="Arraste para aumentar ou diminuir o vídeo · duplo clique volta ao padrão"></div>
       <div class="painel-lateral">
         <div class="painel-abas">
           ${[['refinar', 'Refinar'], ['som', 'Som'], ['render', 'Renderizar'], ['versoes', 'Versões'], ['codigo', 'Código'], ['prompt', 'Prompt']]
@@ -568,20 +615,77 @@ function desenharDetalhe(p) {
   $('#pComSom').onclick = () => assistirComSom(p);
   $('#pReiniciar').onclick = () => { pararSomPreview(); const f = $('#pvFrame'); if (f) f.src = f.src.replace(/&t=\d+/, '&t=' + Date.now()); };
   $$('.painel-abas button', el).forEach((b) => b.onclick = () => { estado.abaProjeto = b.dataset.aba; desenharDetalhe(p); });
+  ligarTamanhoPreview(el);
   encaixarIframe();
   desenharAba(p);
 }
 
+// tamanho da tela do vídeo: divisor arrastável, botões +/−, esconder painel e tela cheia
+const PAINEL_PADRAO = 420;
+function lerLargPainel() { try { const v = +localStorage.getItem("larguraPainel"); return Number.isFinite(v) && v >= 0 && localStorage.getItem("larguraPainel") !== null ? v : PAINEL_PADRAO; } catch { return PAINEL_PADRAO; } }
+function definirLargPainel(el, v) {
+  const det = $(".detalhe", el);
+  if (!det) return;
+  const max = Math.max(300, det.clientWidth - 260);
+  v = v <= 40 ? 0 : Math.round(Math.min(max, Math.max(280, v)));
+  det.style.setProperty("--painel-largura", v + "px");
+  det.classList.toggle("sem-painel", v === 0);
+  try { localStorage.setItem("larguraPainel", v); } catch {}
+  encaixarIframe();
+}
+function ligarTamanhoPreview(el) {
+  definirLargPainel(el, lerLargPainel());
+  const div = $("#pDivisor", el);
+  const det = $(".detalhe", el);
+  div.onpointerdown = (e) => {
+    e.preventDefault();
+    div.setPointerCapture(e.pointerId);
+    det.classList.add("redimensionando");
+    div.onpointermove = (m) => definirLargPainel(el, det.getBoundingClientRect().right - m.clientX);
+    div.onpointerup = () => { div.onpointermove = null; det.classList.remove("redimensionando"); };
+  };
+  div.ondblclick = () => definirLargPainel(el, PAINEL_PADRAO);
+  $("#pMaior").onclick = () => mudarZoom(zoomPreview + 0.1);
+  $("#pMenor").onclick = () => mudarZoom(zoomPreview - 0.1);
+  $("#pZoom").onclick = () => mudarZoom(1);
+  $("#pvArea", el).addEventListener("wheel", (e) => { if (!e.ctrlKey) return; e.preventDefault(); mudarZoom(zoomPreview * (e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
+  $("#pPainel").onclick = () => {
+    const atual = lerLargPainel();
+    if (atual) { try { localStorage.setItem("larguraPainelAntes", atual); } catch {} definirLargPainel(el, 0); }
+    else { let antes = PAINEL_PADRAO; try { antes = +localStorage.getItem("larguraPainelAntes") || PAINEL_PADRAO; } catch {} definirLargPainel(el, antes); }
+  };
+  $("#pCheia").onclick = () => {
+    const cx = $(".preview-caixa", el);
+    if (document.fullscreenElement) document.exitFullscreen();
+    else cx.requestFullscreen?.().catch(() => toast("O navegador não permitiu a tela cheia.", "erro"));
+  };
+}
+document.addEventListener("fullscreenchange", () => setTimeout(encaixarIframe, 60));
+
+let zoomPreview = (() => { try { return +localStorage.getItem("zoomPreview") || 1; } catch { return 1; } })();
+function mudarZoom(v) {
+  zoomPreview = Math.round(Math.min(3, Math.max(0.3, v)) * 100) / 100;
+  try { localStorage.setItem("zoomPreview", zoomPreview); } catch {}
+  encaixarIframe();
+}
 function encaixarIframe() {
   const area = $('#pvArea');
   const f = $('#pvFrame');
   if (!area || !f) return;
   const W = +f.width;
   const H = +f.height;
-  const e = Math.min((area.clientWidth - 24) / W, (area.clientHeight - 24) / H);
-  // centro do iframe no centro da área, encolhido para caber
-  f.style.transformOrigin = 'center';
-  f.style.transform = `translate(-50%, -50%) scale(${e})`;
+  const caber = Math.min((area.clientWidth - 24) / W, (area.clientHeight - 24) / H);
+  const e = caber * zoomPreview;
+  const sw = W * e, sh = H * e;
+  // centraliza quando cabe; com zoom maior, a área ganha rolagem
+  f.style.transformOrigin = "0 0";
+  f.style.transform = `scale(${e})`;
+  f.style.left = Math.max(12, (area.clientWidth - sw) / 2) + "px";
+  f.style.top = Math.max(12, (area.clientHeight - sh) / 2) + "px";
+  let esp = $("#pvEspaco");
+  if (!esp) { esp = document.createElement("div"); esp.id = "pvEspaco"; area.appendChild(esp); }
+  esp.style.width = (sw + 24) + "px"; esp.style.height = (sh + 24) + "px";
+  const z = $("#pZoom"); if (z) z.textContent = Math.round(zoomPreview * 100) + "%";
 }
 window.addEventListener('resize', () => { encaixarIframe(); ajustarPalco(); });
 
@@ -746,6 +850,16 @@ function assistirComSom(p) {
   f.src = f.src.replace(/&t=\d+/, '&t=' + Date.now());
 }
 
+const ESTILOS_SOM = [
+  ['🎬 Cinematográfico', 'cinematográfico de trailer: impactos graves, braams, risers, whooshes cheios, cauda longa de reverb'],
+  ['💻 Tech / interface', 'tecnológico premium: UI limpo, glitches sutis, whooshes digitais, pulsos eletrônicos, brilho'],
+  ['💎 Luxo / elegante', 'luxo e elegância: sons refinados, brilho cristalino, impactos suaves e profundos, ar e espaço'],
+  ['⚡ Energia / esporte', 'energia e esporte: batidas secas, whooshes rápidos, impactos de força, adrenalina'],
+  ['🌿 Orgânico', 'orgânico e natural: foley realista, materiais naturais, texturas de ar, toque humano'],
+  ['🌑 Suspense / dark', 'suspense sombrio: drones graves, tensão crescente, impactos metálicos, silêncios'],
+  ['🎈 Pop / divertido', 'pop divertido: pops, bloops, swishes coloridos e brincalhões, ritmo leve'],
+  ['🕹 Game / arcade', 'game moderno: power-ups, moedas, transições de fase, impactos estilizados'],
+];
 const cacheVozes = {};
 async function vozesDe(provedor) {
   if (!cacheVozes[provedor]) cacheVozes[provedor] = api(`/api/audio/vozes?provedor=${provedor}`).catch((e) => { delete cacheVozes[provedor]; throw e; });
@@ -762,9 +876,11 @@ async function desenharAbaSom(p, c) {
   const eleven = config.elevenlabs.configurado;
   const opcoesModelo = estado.modelosClaude.map((x) => `<option value="${x.id}" ${x.id === 'claude-sonnet-5-5' ? 'selected' : ''}>${esc(x.nome)}</option>`).join('');
   const urlAudio = (arq) => `/p/${p.id}/audio/${arq}?t=${Date.now()}`;
+  setTimeout(() => { const b = $("#sEstudioVoz"); if (b) b.onclick = () => { vz.id = p.id; vz.l = null; try { localStorage.setItem("vozProjeto", p.id); } catch {} irPara("voz"); }; });
 
   c.innerHTML = `
     <div id="sJob" hidden><div class="barra-prog"><i></i></div><p class="mono" id="sJobMsg"></p></div>
+    <button class="btn" id="sEstudioVoz" title="Roteiro sobre o vídeo + voz inteira na ElevenLabs, com takes">🎙 Abrir o Estúdio de voz (melhor qualidade)</button>
     <label>Claude para roteiro e efeitos<select id="sModelo">${opcoesModelo}</select></label>
 
     <h2 style="margin:6px 0 0">🎙 Voz / locução</h2>
@@ -788,6 +904,15 @@ async function desenharAbaSom(p, c) {
       <p class="ajuda" id="vzAvisoPerm" style="margin:0" hidden></p>
       <div class="linha" id="vzModeloLinha" ${a.voz.provedor === 'elevenlabs' ? '' : 'hidden'}>
         <label>Modelo ElevenLabs<select id="vzModelo"><option value="">Eleven v4 (padrão)</option></select></label>
+        <label>Interpretação<select id="vzInterp">
+          <option value="estavel" ${a.voz.interpretacao === 'estavel' ? 'selected' : ''}>Estável (locutor)</option>
+          <option value="natural" ${(a.voz.interpretacao || 'natural') === 'natural' ? 'selected' : ''}>Natural</option>
+          <option value="expressiva" ${a.voz.interpretacao === 'expressiva' ? 'selected' : ''}>Expressiva (anúncio)</option>
+        </select></label>
+      </div>
+      <div class="linha" style="align-items:center">
+        <button type="button" class="btn" id="vzTestar" style="flex:none">🔊 Testar a voz</button>
+        <span class="ajuda" id="vzTestarMsg" style="margin:0">Ouça uma frase antes de gerar tudo.</span>
       </div>
       <label>Velocidade: <span id="vzVelTxt">${a.voz.velocidade.toFixed(2)}×</span><input type="range" id="vzVel" min="0.7" max="1.3" step="0.05" value="${a.voz.velocidade}"></label>
       <label>Tom da locução<input type="text" id="vzTom" value="${esc(a.voz.tom)}" placeholder="Ex.: energético, confiante, de anúncio fitness"></label>
@@ -817,25 +942,38 @@ async function desenharAbaSom(p, c) {
     </div>
     <div id="vzStatus"></div>
 
-    <h2 style="margin:14px 0 0">💥 Efeitos sonoros</h2>
+    <h2 style="margin:14px 0 0">💥 Sonoplastia (efeitos sonoros)</h2>
     <div class="linha">
       <label class="check"><input type="checkbox" id="efAtivo" ${a.efeitos.ativo ? 'checked' : ''}> usar no vídeo</label>
       <label>Volume<input type="range" id="efVol" min="0" max="1.5" step="0.05" value="${a.efeitos.volume}"></label>
     </div>
     <label>De onde vêm os sons
       <select id="efMotor">
-        <option value="codigo">Sintetizados pelo Claude em código (grátis)</option>
-        <option value="elevenlabs" ${eleven ? '' : 'disabled'}>ElevenLabs Sound Effects (IA, usa créditos)${eleven ? '' : ' — configure em ⚙'}</option>
+        <option value="elevenlabs" ${eleven ? '' : 'disabled'}>ElevenLabs Sound Effects — qualidade de cinema (usa créditos)${eleven ? '' : ' — configure em ⚙'}</option>
+        <option value="codigo">Sintetizados pela IA em código (grátis)</option>
         <option value="biblioteca">Minha biblioteca de sons (${cacheBiblioteca.length})</option>
       </select>
     </label>
-    <label>Estilo<input type="text" id="efEstilo" value="${esc(a.efeitos.estilo)}" placeholder="Ex.: cinematográfico, tech, impactos graves, whooshes rápidos"></label>
+    <div>
+      <small class="rotulo-mini">Estilo sonoro</small>
+      <div class="chips pequenos" id="efEstilos">${ESTILOS_SOM.map(([k, v]) => `<button type="button" data-estilo="${esc(v)}" class="${a.efeitos.estilo === v ? 'ativa' : ''}">${k}</button>`).join('')}</div>
+      <input type="text" id="efEstilo" value="${esc(a.efeitos.estilo)}" placeholder="ou descreva: ex. trailer épico com graves profundos e risers" style="margin-top:6px">
+    </div>
+    <div class="linha" style="align-items:end">
+      <div style="flex:none">
+        <small class="rotulo-mini">Intensidade</small>
+        <div class="chips pequenos" id="efIntensidade">${[['sutil', 'Sutil'], ['equilibrado', 'Equilibrado'], ['intenso', 'Intenso / trailer']].map(([k, v]) => `<button type="button" data-int="${k}" class="${(a.efeitos.intensidade || 'equilibrado') === k ? 'ativa' : ''}">${v}</button>`).join('')}</div>
+      </div>
+      <label class="check"><input type="checkbox" id="efAmbiente" ${a.efeitos.comAmbiente !== false ? 'checked' : ''}> ambiência contínua (imersão)</label>
+    </div>
     <label class="check" id="efTrilhaLinha"><input type="checkbox" id="efTrilha" ${a.efeitos.comTrilha ? 'checked' : ''}> incluir batida/trilha de fundo sintetizada</label>
     <div id="efBib" class="ajuda" style="margin:0"></div>
-    <button class="btn" id="efMapa">✦ Mapear momentos com Claude</button>
-    <div id="efLista" style="display:grid;gap:6px"></div>
-    <button class="btn mini fantasma" id="efAdd" style="justify-self:start">＋ efeito</button>
-    <button class="btn primario" id="efGerar">🔊 Gerar efeitos</button>
+    <button class="btn primario" id="efMapa">👁 Assistir ao vídeo e desenhar o som (IA)</button>
+    <p class="ajuda" style="margin:-4px 0 0">A IA assiste ao vídeo (quadros, cortes, movimento, flashes e a sua locução) e planeja cada som com intenção: impactos no quadro, risers que terminam na revelação, camadas, pan, reverb e silêncios.</p>
+    <div id="efPlano"></div>
+    <div id="efLista" style="display:grid;gap:8px"></div>
+    <button class="btn mini fantasma" id="efAdd" style="justify-self:start">＋ som manual</button>
+    <button class="btn primario" id="efGerar">🔊 Gerar sonoplastia</button>
     <div id="efStatus"></div>`;
 
   $('#efMotor').value = a.efeitos.motor;
@@ -855,6 +993,13 @@ async function desenharAbaSom(p, c) {
     }, imediato ? 0 : 400);
   });
 
+  function assistirNoTopo() {
+    p.audio = { ...p.audio, voz: { ...p.audio.voz, ...a.voz }, efeitos: { ...p.audio.efeitos, ...a.efeitos } };
+    document.querySelector('.preview-caixa')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.querySelector('.preview-caixa')?.classList.add('destaque');
+    setTimeout(() => document.querySelector('.preview-caixa')?.classList.remove('destaque'), 1600);
+    assistirComSom(p);
+  }
   function statusFaixas() {
     const linha = (t, rot) => {
       if (!t.arquivo) return `<p class="ajuda" style="margin:0">${rot} ainda não gerada.</p>`;
@@ -863,6 +1008,15 @@ async function desenharAbaSom(p, c) {
     };
     $('#vzStatus').innerHTML = linha(a.voz, 'Voz');
     $('#efStatus').innerHTML = linha(a.efeitos, 'Faixa de efeitos');
+    // assistir ao vídeo com tudo junto, direto daqui
+    if (a.voz.arquivo || a.efeitos.arquivo) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn primario btn-assistir';
+      b.textContent = '▶ Assistir ao vídeo com voz + efeitos';
+      b.onclick = () => assistirNoTopo();
+      $('#efStatus').append(b);
+    }
     $('#pComSom') && ($('#pComSom').disabled = !(a.voz.arquivo || a.efeitos.arquivo));
   }
 
@@ -883,9 +1037,10 @@ async function desenharAbaSom(p, c) {
         if (eleven && a.voz.voz) vozes.unshift({ id: a.voz.voz, nome: a.voz.vozNome || `ID personalizado: ${a.voz.voz}`, grupo: 'Escolhida' });
         else { a.voz.voz = vozes[0]?.id || ''; salvar(); }
       }
-      const semPermissao = vozes.some((v) => /permissão/.test(v.grupo || ''));
+      const semPermissao = vozes.some((v) => /permissão|sotaque estrangeiro/.test(v.grupo || ''));
       $('#vzAvisoPerm').hidden = !semPermissao;
-      $('#vzAvisoPerm').innerHTML = 'Para ver <b>as suas vozes e as brasileiras da biblioteca</b> com o mesmo nome do site, ative a permissão <b>Voices (Read e Write)</b> na sua chave em elevenlabs.io → Settings → API Keys. Não precisa colar a chave de novo.';
+      $('#vzAvisoPerm').innerHTML = '⚠ As vozes padrão da ElevenLabs são <b>nativas em inglês</b> e falam português com sotaque estrangeiro. Para voz brasileira de verdade, ative a permissão <b>Voices (Read e Write)</b> na sua chave (elevenlabs.io → Settings → API Keys) e escolha uma voz em <b>🎧 Escolher voz na biblioteca → Explorar</b> (sotaque Brasileiro). Ou use o motor <b>Piper</b> (grátis, pt-BR nativo).';
+      $('#vzAvisoPerm').classList.toggle('aviso', semPermissao);
       // agrupa (Minhas vozes / Biblioteca pt-BR) e filtra pela busca, mostrando o nome exato do site
       const desenhar = () => {
         const termo = normalizar($('#vzBusca').value);
@@ -933,6 +1088,20 @@ async function desenharAbaSom(p, c) {
   }
   $('#vzProv').onchange = (e) => { a.voz.provedor = e.target.value; a.voz.voz = ''; salvar(); carregarVozes(); };
   $('#vzModelo').onchange = (e) => { a.voz.modelo = e.target.value; salvar(); };
+  $('#vzInterp').onchange = (e) => { a.voz.interpretacao = e.target.value; salvar(); };
+  $('#vzTestar').onclick = async () => {
+    await salvar(true);
+    const b = $('#vzTestar');
+    b.disabled = true;
+    $('#vzTestarMsg').textContent = 'Gerando a amostra…';
+    try {
+      const r = await api(`/api/projetos/${p.id}/audio/testar-voz`, { corpo: {} });
+      $('#vzTestarMsg').textContent = `“${r.texto}”`;
+      audioAmostra.src = r.url + '?t=' + Date.now();
+      audioAmostra.play().catch(() => {});
+    } catch (e) { $('#vzTestarMsg').textContent = e.message; }
+    b.disabled = false;
+  };
   $('#vzVel').oninput = (e) => { a.voz.velocidade = +e.target.value; $('#vzVelTxt').textContent = a.voz.velocidade.toFixed(2) + '×'; salvar(); };
   $('#vzVol').oninput = (e) => { a.voz.volume = +e.target.value; salvar(); };
   $('#vzAtivo').onchange = (e) => { a.voz.ativo = e.target.checked; salvar(); };
@@ -985,13 +1154,20 @@ async function desenharAbaSom(p, c) {
     const fs = a.voz.falas;
     $('#vzFalas').innerHTML = fs.length ? fs.map((f, i) => {
       const prox = fs[i + 1]?.inicio ?? p.ajustes.duracao;
-      const fim = f.duracao ? f.inicio + f.duracao : null;
-      const estoura = fim && fim > prox + 0.05;
+      // depois de gerar, o organizador garante que nada sobrepõe; aqui só mostramos o que ele fez
+      const fim = f.duracao ? (f.inicioReal ?? f.inicio) + (f.duracaoReal ?? f.duracao) : null;
+      const estoura = fim && f.inicioReal == null && fim > prox + 0.05;
+      const janela = Math.max(0.3, (fs[i + 1]?.inicio ?? p.ajustes.duracao) - f.inicio - 0.25);
+      const maxPal = Math.max(2, Math.floor(janela * 2.2 * (a.voz.velocidade || 1)));
+      const nPal = f.texto.split(/\s+/).filter(Boolean).length;
+      const ajuste = [f.tempo > 1.005 ? `⏩ ${f.tempo.toFixed(2)}×` : '', f.inicioReal != null && f.inicioReal > f.inicio + 0.01 ? `↦ ${f.inicioReal.toFixed(1)}s` : ''].filter(Boolean).join(' ');
       return `<div class="linha-fala" data-i="${i}">
         <input type="number" step="0.1" min="0" value="${f.inicio}" data-campo="inicio" title="Começa em (s)">
         <textarea rows="2" data-campo="texto">${esc(f.texto)}</textarea>
         <div class="fala-acoes">
-          ${f.duracao ? `<small class="mono" style="color:${estoura ? 'var(--erro)' : 'var(--texto-3)'}" title="${estoura ? 'Esta fala invade a próxima (ou passa do fim)' : 'Duração falada'}">${f.duracao.toFixed(1)}s${estoura ? ' ⚠' : ''}</small>` : ''}
+          ${f.duracao ? `<small class="mono" style="color:${estoura ? 'var(--erro)' : 'var(--texto-3)'}" title="${estoura ? 'Fala maior que a janela — o organizador vai acelerar um pouco ou adiar a próxima' : 'Duração falada'}">${(f.duracaoReal ?? f.duracao).toFixed(1)}s${estoura ? ' ⚠' : ''}</small>` : ''}
+          <small class="mono" style="color:${nPal > maxPal ? 'var(--erro)' : 'var(--texto-3)'}" title="Palavras desta fala / máximo que cabe no tempo até a próxima fala">${nPal}/${maxPal} pal.</small>
+          ${ajuste ? `<small class="mono" style="color:var(--aviso)" title="Ajuste automático para não sobrepor: ⏩ acelerada (tom mantido) · ↦ entrou um pouco depois">${ajuste}</small>` : ''}
           ${f.arquivo ? `<button class="btn mini" data-ouvir="${f.arquivo}" title="Ouvir">▶</button>` : ''}
           <button class="btn mini perigo" data-rem title="Remover">✕</button>
         </div>
@@ -1018,15 +1194,17 @@ async function desenharAbaSom(p, c) {
     desenharFalas(); salvar();
   };
 
-  // ---------- efeitos
+  // ---------- sonoplastia
+  const ICONE_CAT = { impacto: '💥', boom: '🔊', hit: '🥁', braam: '📯', whoosh: '💨', transicao: '↔', riser: '📈', reverse: '⏪', swell: '🌊', ui: '🖱', glitch: '⚡', textura: '✨', stinger: '⭐', foley: '🎬' };
+  const ALINHAR = { inicio: 'começa em', fim: 'termina em', centro: 'centro em' };
   function ajustarMotor() {
     const m = a.efeitos.motor;
     $('#efTrilhaLinha').hidden = m !== 'codigo';
     $('#efBib').innerHTML = m === 'biblioteca'
       ? `${cacheBiblioteca.length} sons na biblioteca. <a href="#" id="efAbrirBib">abrir pasta</a> · <label style="display:inline;color:var(--acento-2);cursor:pointer">importar sons<input type="file" id="efImportar" multiple accept="audio/*" hidden></label>
          <br>Coloque sons que você pode usar (comprados, CC0 do Freesound, Pixabay, Mixkit). Os gerados pela ElevenLabs também ficam salvos aqui.`
-      : m === 'elevenlabs' ? 'Cada momento vira um efeito gerado por IA (fica salvo na sua biblioteca e não é cobrado de novo).'
-        : 'O Claude escreve um sintetizador Web Audio sob medida, sincronizado com a animação. Grátis e offline.';
+      : m === 'elevenlabs' ? 'Cada som é gerado por IA a partir da descrição do plano, tratado (EQ, pan, reverb) e mixado. Fica salvo e não é cobrado de novo.'
+        : 'A IA programa um sintetizador sob medida a partir do plano. Grátis e offline, com qualidade menor que a ElevenLabs.';
     const abrir = $('#efAbrirBib');
     if (abrir) abrir.onclick = (ev) => { ev.preventDefault(); api('/api/audio/biblioteca/abrir', { method: 'POST' }); };
     const imp = $('#efImportar');
@@ -1037,45 +1215,115 @@ async function desenharAbaSom(p, c) {
       ajustarMotor(); desenharEfeitos();
     };
   }
+
+  // linha do tempo "assistida": movimento, cortes, flashes, falas e cada som planejado
+  function desenharPlano() {
+    const e = a.efeitos;
+    const an = e.analise;
+    const D = an?.duracao || p.ajustes.duracao;
+    const X = (t) => (Math.max(0, Math.min(D, t)) / D) * 1000;
+    let svg = '';
+    if (an) {
+      const pts = an.curva.map((v, i) => `${X(i * 0.25).toFixed(1)},${(78 - v * 46).toFixed(1)}`).join(' ');
+      svg += `<polyline points="0,78 ${pts} 1000,78" fill="rgba(90,169,255,.18)" stroke="#5aa9ff" stroke-width="1.5"/>`;
+      for (const c of an.cortes) svg += `<line x1="${X(c.t)}" x2="${X(c.t)}" y1="26" y2="80" stroke="#ff5d5d" stroke-width="${1 + c.forca * 2}" opacity=".8"><title>corte ${c.t}s</title></line>`;
+      for (const f of an.flashes) svg += `<rect x="${X(f.t) - 3}" y="26" width="6" height="54" fill="#fff" opacity="${0.15 + f.forca * 0.35}"><title>flash ${f.t}s</title></rect>`;
+    }
+    for (const s of e.silencios || []) svg += `<rect x="${X(s.inicio)}" y="20" width="${Math.max(2, X(s.fim) - X(s.inicio))}" height="64" fill="rgba(0,0,0,.55)"><title>silêncio dramático</title></rect>`;
+    const falas = a.voz.provedor === 'arquivo' ? (a.voz.gravacao?.transcricao?.frases || []).map((f) => ({ inicio: f.inicio, duracao: f.fim - f.inicio, texto: f.texto })) : a.voz.falas;
+    for (const f of falas || []) if (f.texto?.trim()) svg += `<rect x="${X(f.inicio)}" y="86" width="${Math.max(3, X(f.inicio + (f.duracao || 2)) - X(f.inicio))}" height="8" rx="3" fill="#3ecf8e" opacity=".7"><title>fala: ${esc(f.texto)}</title></rect>`;
+    e.lista.forEach((x, i) => {
+      const ini = x.alinhar === 'fim' ? x.inicio - x.duracao : x.alinhar === 'centro' ? x.inicio - x.duracao / 2 : x.inicio;
+      svg += `<rect x="${X(ini)}" y="${6 + (i % 2) * 7}" width="${Math.max(3, X(ini + x.duracao) - X(ini))}" height="6" rx="2" fill="#ff6a3d" opacity=".55"/>`;
+      svg += `<circle cx="${X(x.inicio)}" cy="${9 + (i % 2) * 7}" r="${4 + (x.camadas?.length ? 2 : 0)}" fill="#ff6a3d" data-som="${i}" style="cursor:pointer"><title>${ICONE_CAT[x.categoria] || '•'} ${x.inicio.toFixed(2)}s — ${esc(x.descricao)}</title></circle>`;
+    });
+    $('#efPlano').innerHTML = (e.conceito || an || e.lista.length) ? `
+      ${e.conceito ? `<div class="conceito-som"><b>🎧 Conceito sonoro</b>${esc(e.conceito)}</div>` : ''}
+      <svg class="linha-som" viewBox="0 0 1000 100" preserveAspectRatio="none">${svg}</svg>
+      <div class="legenda-som"><span style="color:#ff6a3d">● sons</span><span style="color:#5aa9ff">▬ movimento</span><span style="color:#ff5d5d">| cortes</span><span style="color:#3ecf8e">▬ falas</span>${(e.silencios || []).length ? '<span>■ silêncio</span>' : ''}<span class="mono">${D.toFixed(1)}s</span></div>
+      ${e.ambiente ? `<div class="linha-ambiente">🌫 <b>Ambiência</b>
+        <input type="text" id="efAmbDesc" value="${esc(e.ambiente.descricao)}">
+        <input type="range" id="efAmbVol" min="0" max="0.5" step="0.01" value="${e.ambiente.volume}" title="Volume da ambiência">
+        <button type="button" class="btn mini" id="efAmbVar" title="Gerar outra variação">↻</button></div>` : ''}` : '';
+    $$('#efPlano [data-som]').forEach((c) => c.onclick = () => $(`.linha-efeito[data-i="${c.dataset.som}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    if ($('#efAmbDesc')) {
+      $('#efAmbDesc').onchange = (ev) => { e.ambiente.descricao = ev.target.value; salvar(); };
+      $('#efAmbVol').onchange = (ev) => { e.ambiente.volume = +ev.target.value; salvar(); };
+      $('#efAmbVar').onclick = () => { e.ambiente.variante = (e.ambiente.variante || 0) + 1; salvar(); toast('Nova variação da ambiência será gerada em "Gerar sonoplastia".'); };
+    }
+  }
+
   function desenharEfeitos() {
     const bib = a.efeitos.motor === 'biblioteca';
     $('#efLista').innerHTML = a.efeitos.lista.length ? a.efeitos.lista.map((x, i) => `
-      <div class="linha-efeito" data-i="${i}">
-        <input type="number" step="0.1" min="0" value="${x.inicio}" data-campo="inicio" title="Começa em (s)">
-        <input type="number" step="0.1" min="0.5" max="30" value="${x.duracao}" data-campo="duracao" title="Duração (s)">
+      <div class="linha-efeito v2" data-i="${i}">
+        <div class="ef-topo">
+          <span class="ef-icone" title="${esc(x.categoria || '')}">${ICONE_CAT[x.categoria] || '•'}</span>
+          <select data-campo="alinhar" title="Como o som se alinha ao tempo">${Object.entries(ALINHAR).map(([k, v]) => `<option value="${k}" ${(x.alinhar || 'inicio') === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+          <input type="number" step="0.05" min="0" value="${x.inicio}" data-campo="inicio" title="Tempo (s)">
+          <input type="number" step="0.1" min="0.4" max="30" value="${x.duracao}" data-campo="duracao" title="Duração (s)">
+          <span class="espaco"></span>
+          ${x.gerado ? `<button type="button" class="btn mini" data-ouvir="${esc(x.gerado)}" title="Ouvir este som">▶</button>` : ''}
+          ${a.efeitos.motor === 'elevenlabs' ? '<button type="button" class="btn mini" data-variar title="Trocar por outra variação">↻</button>' : ''}
+          <button type="button" class="btn mini perigo" data-rem title="Remover">✕</button>
+        </div>
         <input type="text" value="${esc(x.descricao)}" data-campo="descricao" title="Descrição do som (em inglês funciona melhor)">
-        <input type="range" min="0" max="1.5" step="0.05" value="${x.volume}" data-campo="volume" title="Volume">
-        <button class="btn mini perigo" data-rem title="Remover">✕</button>
-        ${bib ? `<select data-campo="arquivoBiblioteca" class="ef-arquivo"><option value="">(sem som)</option>${cacheBiblioteca.map((b) => `<option ${b === x.arquivoBiblioteca ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>
-          ${x.arquivoBiblioteca ? `<button class="btn mini" data-ouvir-bib="${esc(x.arquivoBiblioteca)}">▶</button>` : ''}` : ''}
-      </div>`).join('') : '<p class="ajuda" style="margin:0">Nenhum momento marcado. Peça ao Claude para mapear (ele lê o código da animação para achar os tempos).</p>';
+        ${x.camadas?.length ? `<small class="ef-camadas">+ ${x.camadas.length} camada(s): ${esc(x.camadas.join(' · '))}</small>` : ''}
+        <div class="ef-controles">
+          <label>Vol<input type="range" min="0" max="1.2" step="0.05" value="${x.volume}" data-campo="volume"></label>
+          <label>Pan<input type="range" min="-1" max="1" step="0.1" value="${x.pan || 0}" data-campo="pan" title="Esquerda ↔ direita"></label>
+          <label>Reverb<input type="range" min="0" max="1" step="0.05" value="${x.reverb || 0}" data-campo="reverb"></label>
+        </div>
+        ${x.motivo ? `<small class="ef-motivo">💡 ${esc(x.motivo)}</small>` : ''}
+        ${bib ? `<select data-campo="arquivoBiblioteca"><option value="">(sem som da biblioteca)</option>${cacheBiblioteca.map((b) => `<option ${b === x.arquivoBiblioteca ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>` : ''}
+      </div>`).join('') : '<p class="ajuda" style="margin:0">Nenhum som planejado. Clique em <b>👁 Assistir ao vídeo e desenhar o som</b>.</p>';
+    desenharPlano();
   }
-  $('#efLista').addEventListener('change', (e) => {
-    const linha = e.target.closest('.linha-efeito');
-    const campo = e.target.dataset.campo;
+  $('#efLista').addEventListener('change', (ev) => {
+    const linha = ev.target.closest('.linha-efeito');
+    const campo = ev.target.dataset.campo;
     if (!linha || !campo) return;
     const x = a.efeitos.lista[+linha.dataset.i];
-    x[campo] = ['inicio', 'duracao', 'volume'].includes(campo) ? +e.target.value : (e.target.value || null);
-    if (campo === 'inicio') { a.efeitos.lista.sort((m, n) => m.inicio - n.inicio); desenharEfeitos(); }
-    if (campo === 'arquivoBiblioteca') desenharEfeitos();
+    x[campo] = ['inicio', 'duracao', 'volume', 'pan', 'reverb'].includes(campo) ? +ev.target.value : (ev.target.value || null);
+    if (campo === 'inicio') a.efeitos.lista.sort((m, n) => m.inicio - n.inicio);
+    if (['inicio', 'duracao', 'alinhar', 'arquivoBiblioteca'].includes(campo)) desenharEfeitos(); else desenharPlano();
     salvar();
   });
-  $('#efLista').addEventListener('click', (e) => {
-    const linha = e.target.closest('.linha-efeito');
+  $('#efLista').addEventListener('click', (ev) => {
+    const linha = ev.target.closest('.linha-efeito');
     if (!linha) return;
-    if (e.target.dataset.ouvirBib) new Audio('/arquivos/sfx/' + e.target.dataset.ouvirBib.split('/').map(encodeURIComponent).join('/')).play();
-    if (e.target.hasAttribute('data-rem')) { a.efeitos.lista.splice(+linha.dataset.i, 1); desenharEfeitos(); salvar(); }
+    const x = a.efeitos.lista[+linha.dataset.i];
+    const ouvir = ev.target.closest('[data-ouvir]');
+    if (ouvir) { audioAmostra.src = `/p/${p.id}/audio/sfx/${encodeURIComponent(ouvir.dataset.ouvir)}`; audioAmostra.play().catch(() => {}); }
+    if (ev.target.closest('[data-variar]')) { x.variante = (x.variante || 0) + 1; x.gerado = null; salvar(); desenharEfeitos(); toast('Nova variação deste som será gerada em "Gerar sonoplastia" (só ele é refeito).'); }
+    if (ev.target.closest('[data-rem]')) { a.efeitos.lista.splice(+linha.dataset.i, 1); desenharEfeitos(); salvar(); }
   });
-  $('#efAdd').onclick = () => { a.efeitos.lista.push({ inicio: 0, duracao: 1, descricao: 'fast whoosh transition', volume: 0.8, arquivoBiblioteca: null }); desenharEfeitos(); salvar(); };
-  $('#efMotor').onchange = async (e) => {
-    a.efeitos.motor = e.target.value;
+  $('#efAdd').onclick = () => {
+    a.efeitos.lista.push({ inicio: 0, alinhar: 'inicio', duracao: 1, categoria: 'whoosh', descricao: 'fast airy whoosh transition', camadas: [], volume: 0.8, pan: 0, reverb: 0.2, variante: 0, arquivoBiblioteca: null });
+    a.efeitos.lista.sort((m, n) => m.inicio - n.inicio);
+    desenharEfeitos(); salvar();
+  };
+  $('#efMotor').onchange = async (ev) => {
+    a.efeitos.motor = ev.target.value;
     if (a.efeitos.motor === 'biblioteca') cacheBiblioteca = await api('/api/audio/biblioteca');
     ajustarMotor(); desenharEfeitos(); salvar();
   };
-  $('#efEstilo').onchange = (e) => { a.efeitos.estilo = e.target.value; salvar(); };
-  $('#efTrilha').onchange = (e) => { a.efeitos.comTrilha = e.target.checked; salvar(); };
-  $('#efVol').oninput = (e) => { a.efeitos.volume = +e.target.value; salvar(); };
-  $('#efAtivo').onchange = (e) => { a.efeitos.ativo = e.target.checked; salvar(); };
+  $$('#efEstilos button').forEach((b) => b.onclick = () => {
+    a.efeitos.estilo = b.dataset.estilo;
+    $('#efEstilo').value = a.efeitos.estilo;
+    $$('#efEstilos button').forEach((x) => x.classList.toggle('ativa', x === b));
+    salvar();
+  });
+  $$('#efIntensidade button').forEach((b) => b.onclick = () => {
+    a.efeitos.intensidade = b.dataset.int;
+    $$('#efIntensidade button').forEach((x) => x.classList.toggle('ativa', x === b));
+    salvar();
+  });
+  $('#efAmbiente').onchange = (ev) => { a.efeitos.comAmbiente = ev.target.checked; salvar(); };
+  $('#efEstilo').onchange = (ev) => { a.efeitos.estilo = ev.target.value; $$('#efEstilos button').forEach((x) => x.classList.toggle('ativa', x.dataset.estilo === a.efeitos.estilo)); salvar(); };
+  $('#efTrilha').onchange = (ev) => { a.efeitos.comTrilha = ev.target.checked; salvar(); };
+  $('#efVol').oninput = (ev) => { a.efeitos.volume = +ev.target.value; salvar(); };
+  $('#efAtivo').onchange = (ev) => { a.efeitos.ativo = ev.target.checked; salvar(); };
 
   // ---------- jobs
   async function rodar(rota, botao) {
@@ -1103,10 +1351,10 @@ async function desenharAbaSom(p, c) {
   };
   $('#vzGerar').onclick = () => rodar('voz', 'Voz');
   $('#efMapa').onclick = () => {
-    if (a.efeitos.lista.length && !confirm('Substituir os momentos atuais por um mapa novo?')) return;
-    rodar('mapa', 'Mapa de efeitos');
+    if (a.efeitos.lista.length && !confirm('Substituir o plano de som atual por um novo?')) return;
+    rodar('mapa', 'Plano de som');
   };
-  $('#efGerar').onclick = () => rodar('efeitos', 'Efeitos');
+  $('#efGerar').onclick = () => rodar('efeitos', 'Sonoplastia');
 
   desenharFalas();
   ajustarMotor();
@@ -2534,10 +2782,270 @@ async function carregarEdicao() {
   registrar();
 }
 
+// ===================================================================== ESTÚDIO DE VOZ
+// roteiro sobre o vídeo (IA assiste) → texto editável com tags → voz inteira na ElevenLabs → takes → colocar no vídeo
+const TONS_VOZ = ['Confiante e energético', 'Emocional e inspirador', 'Calmo e premium', 'Urgente (oferta)', 'Divertido e jovem', 'Sério e técnico', 'Curiosidade / mistério'];
+const TAGS_VOZ = [
+  ['[excited]', 'animado'], ['[confident]', 'confiante'], ['[warm]', 'acolhedor'], ['[serious]', 'sério'],
+  ['[whispers]', 'sussurro'], ['[curious]', 'curioso'], ['[dramatic]', 'dramático'], ['[laughs softly]', 'risinho'],
+  ['[short pause]', 'pausa curta'], ['[long pause]', 'pausa longa'],
+];
+const vz = { id: null, p: null, l: null, modelos: null, audio: new Audio(), salvarT: null, obs: null };
+
+async function abrirEstudioVoz() {
+  const sel = $('#vzProjeto');
+  const lista = (await api('/api/projetos')).filter((p) => p.versaoAtual);
+  if (!lista.length) {
+    sel.innerHTML = '';
+    $('#vozGrade').innerHTML = '<div class="vazio-grande" style="grid-column:1/-1">Crie um projeto primeiro (aba Modelos → Gerar animação).</div>';
+    return;
+  }
+  let lembrado = null;
+  try { lembrado = localStorage.getItem('vozProjeto'); } catch {}
+  const id = vz.id && lista.some((p) => p.id === vz.id) ? vz.id : lista.some((p) => p.id === lembrado) ? lembrado : lista[0].id;
+  sel.innerHTML = lista.map((p) => `<option value="${p.id}" ${p.id === id ? 'selected' : ''}>${esc(p.nome)} · ${p.ajustes.duracao}s</option>`).join('');
+  sel.onchange = () => carregarEstudioVoz(sel.value);
+  if (vz.id !== id || !vz.l) await carregarEstudioVoz(id);
+}
+
+async function carregarEstudioVoz(id) {
+  vz.id = id;
+  try { localStorage.setItem('vozProjeto', id); } catch {}
+  vz.audio.pause();
+  const [p, l] = await Promise.all([api(`/api/projetos/${id}`), api(`/api/projetos/${id}/locucao`)]);
+  vz.p = p; vz.l = l;
+  if (!vz.modelos) vz.modelos = await api('/api/audio/modelos-eleven').catch(() => [{ id: 'eleven_v4', nome: 'Eleven v4' }]);
+  desenharEstudioVoz();
+  const emCurso = await api(`/api/projetos/${id}/audio/job`).catch(() => null);
+  if (emCurso && (emCurso.status === 'rodando' || emCurso.status === 'fila')) seguirJobVoz(emCurso);
+}
+
+const salvarVoz = (imediato) => {
+  clearTimeout(vz.salvarT);
+  const id = vz.id;
+  const f = () => api(`/api/projetos/${id}/locucao`, { method: 'PUT', corpo: vz.l }).catch((e) => toast(e.message, 'erro'));
+  if (imediato) return f();
+  vz.salvarT = setTimeout(f, 500);
+};
+const contarPalavras = (t) => t.replace(/\[[^\]]*\]/g, ' ').split(/\s+/).filter(Boolean).length;
+
+function desenharEstudioVoz() {
+  const { p, l } = vz;
+  const { largura: W, altura: H, duracao } = p.ajustes;
+  const alvo = Math.max(4, Math.round((duracao - 0.6) * 2.3 * (+l.velocidade || 1)));
+  const nTakes = (l.takes || []).length;
+  $('#vozGrade').innerHTML = `
+    <section class="voz-col voz-video">
+      <div class="voz-tela" id="vzTela"><iframe id="vzFrame" src="/p/${p.id}/?v=${p.versaoAtual}&t=${Date.now()}" width="${W}" height="${H}"></iframe></div>
+      <div class="voz-barra">
+        <button class="btn mini" id="vzReiniciar">↻ Reiniciar vídeo</button>
+        <span class="espaco"></span>
+        <span class="mono">${W}×${H} · ${duracao}s</span>
+      </div>
+    </section>
+
+    <section class="voz-col">
+      <h3>1 · Gerador de roteiro</h3>
+      <label>Sobre o que a voz deve falar? <small>(produto, mensagem, oferta — opcional)</small>
+        <textarea id="vzBriefing" rows="3" placeholder="Ex.: suplemento de creatina pura, 300 g, foco em força e recuperação; oferta de lançamento">${esc(l.briefing)}</textarea></label>
+      <div class="voz-linha">
+        <label>Tom<input id="vzTom" list="vzTons" value="${esc(l.tom)}" placeholder="Confiante e energético"><datalist id="vzTons">${TONS_VOZ.map((t) => `<option value="${esc(t)}">`).join('')}</datalist></label>
+        <label>Chamada final (CTA)<input id="vzCta" value="${esc(l.cta)}" placeholder="Ex.: Clique em saiba mais"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="vzTags" ${l.comTags ? 'checked' : ''}> usar tags de emoção da ElevenLabs ([excited], [whispers]…)</label>
+      <button class="btn primario" id="vzGerarRoteiro">👁 Assistir ao vídeo e gerar roteiro</button>
+      <div id="vzJob" class="voz-job" hidden><div class="barra-prog"><i></i></div><small class="mono"></small></div>
+      ${l.direcao ? `<div class="voz-direcao"><b>🎬 Direção de voz</b><p>${esc(l.direcao)}</p></div>` : ''}
+      ${l.opcoes?.length ? `<div class="voz-opcoes">${l.opcoes.map((o, i) => `
+        <button class="voz-opcao ${o.texto === l.texto ? 'ativa' : ''}" data-i="${i}"><b>${esc(o.titulo)}</b><span>${esc(o.texto)}</span><small>${contarPalavras(o.texto)} palavras · usar esta</small></button>`).join('')}</div>` : ''}
+
+      <h3>2 · Roteiro final <small id="vzContagem"></small></h3>
+      <div class="voz-tags">${TAGS_VOZ.map(([t, n]) => `<button data-tag="${esc(t)}" title="Inserir ${esc(t)} no cursor">${esc(n)}</button>`).join('')}</div>
+      <textarea id="vzTexto" rows="9" placeholder="Escreva aqui ou gere com a IA acima. Quebras de linha e pontuação dão o ritmo da fala.">${esc(l.texto)}</textarea>
+      <p class="ajuda">Vírgula = respiro curto · ponto = pausa · reticências… = suspense. As tags em inglês entre colchetes mudam a emoção (modelos v3/v4; nos outros são removidas).</p>
+    </section>
+
+    <section class="voz-col">
+      <h3>3 · Voz (ElevenLabs)</h3>
+      <div class="voz-escolhida"><div><small>Voz</small><b id="vzVozNome">${esc(l.vozNome || l.voz || 'nenhuma escolhida')}</b></div>
+        <button class="btn" id="vzEscolher">🎧 Escolher voz</button></div>
+      <label>Modelo<select id="vzModelo">${vz.modelos.map((m) => `<option value="${esc(m.id)}" ${m.id === (l.modelo || 'eleven_v4') ? 'selected' : ''}>${esc(m.nome)}</option>`).join('')}</select></label>
+      ${[['velocidade', 'Velocidade', 0.7, 1.2, 'Mais lenta', 'Mais rápida'],
+        ['estabilidade', 'Estabilidade', 0, 1, 'Mais emotiva', 'Mais estável'],
+        ['similaridade', 'Similaridade', 0, 1, 'Baixa', 'Alta'],
+        ['estilo', 'Exagero de estilo', 0, 1, 'Nenhum', 'Exagerado']].map(([k, n, mi, ma, a, b]) => `
+        <label class="voz-slider">${n} <span class="mono" id="vzV_${k}">${(+l[k]).toFixed(2)}</span>
+          <input type="range" data-k="${k}" min="${mi}" max="${ma}" step="0.01" value="${l[k]}">
+          <span class="voz-extremos"><small>${a}</small><small>${b}</small></span></label>`).join('')}
+      <button class="btn primario grande" id="vzGerarVoz">🎙 Gerar voz</button>
+      <p class="ajuda">Grava a locução INTEIRA de uma vez (entonação contínua, sem frases coladas). Cada clique cria um take novo e gasta créditos.</p>
+
+      <h3>4 · Takes</h3>
+      <div id="vzTakes" class="voz-takes">${nTakes ? l.takes.map((t, i) => {
+        const longo = t.duracao > duracao + 0.05;
+        return `
+        <div class="voz-take" data-arq="${esc(t.arquivo)}">
+          <div class="voz-take-topo"><b>Take ${nTakes - i}</b><span class="mono ${longo ? 'erro-txt' : ''}">${t.duracao.toFixed(1)}s${longo ? ' ⚠ maior que o vídeo' : ''}</span><small>${esc(t.vozNome || '')}</small></div>
+          <audio controls preload="none" src="/p/${p.id}/audio/${esc(t.arquivo)}"></audio>
+          <div class="voz-take-acoes">
+            <button class="btn mini" data-acao="junto">▶ Ouvir com o vídeo</button>
+            <button class="btn mini primario" data-acao="usar">✔ Colocar no vídeo</button>
+            <a class="btn mini" href="/p/${p.id}/audio/${esc(t.arquivo)}" download="locucao-take${nTakes - i}.mp3" title="Baixar MP3">⬇</a>
+            <button class="btn mini perigo" data-acao="apagar" title="Apagar take">✕</button>
+          </div>
+        </div>`;
+      }).join('') : '<p class="ajuda">Nenhum take ainda.</p>'}</div>
+    </section>`;
+
+  // vídeo encaixado na coluna
+  const encaixar = () => {
+    const area = $('#vzTela'), f = $('#vzFrame');
+    if (!area || !f) return;
+    const e = Math.min((area.clientWidth - 16) / W, (area.clientHeight - 16) / H);
+    f.style.transform = `translate(-50%, -50%) scale(${e})`;
+  };
+  encaixar();
+  vz.obs?.disconnect();
+  vz.obs = new ResizeObserver(encaixar);
+  vz.obs.observe($('#vzTela'));
+  const reiniciar = () => { const f = $('#vzFrame'); f.src = f.src.replace(/&t=\d+/, '&t=' + Date.now()); return f; };
+  $('#vzReiniciar').onclick = () => { vz.audio.pause(); reiniciar(); };
+
+  // campos (salvam sozinhos)
+  const ligar = (sel, k, ev = 'input', ler = (el) => el.value) => { $(sel).addEventListener(ev, (e) => { l[k] = ler(e.target); salvarVoz(); }); };
+  ligar('#vzBriefing', 'briefing'); ligar('#vzTom', 'tom'); ligar('#vzCta', 'cta');
+  ligar('#vzTags', 'comTags', 'change', (el) => el.checked);
+  ligar('#vzModelo', 'modelo', 'change');
+  const contagem = () => {
+    const n = contarPalavras($('#vzTexto').value);
+    const seg = n / (2.4 * (+l.velocidade || 1));
+    const el = $('#vzContagem');
+    el.textContent = `${n}/${alvo} palavras · ~${seg.toFixed(1)}s de fala`;
+    el.className = n > alvo ? 'erro-txt' : '';
+  };
+  contagem();
+  $('#vzTexto').addEventListener('input', (e) => { l.texto = e.target.value; contagem(); salvarVoz(); });
+  $$('.voz-tags button').forEach((b) => b.onclick = () => {
+    const t = $('#vzTexto');
+    const ini = t.selectionStart ?? t.value.length;
+    t.value = t.value.slice(0, ini) + b.dataset.tag + ' ' + t.value.slice(ini);
+    t.focus();
+    t.selectionStart = t.selectionEnd = ini + b.dataset.tag.length + 1;
+    l.texto = t.value; contagem(); salvarVoz();
+  });
+  $$('.voz-opcao').forEach((b) => b.onclick = () => {
+    l.texto = l.opcoes[+b.dataset.i].texto;
+    $('#vzTexto').value = l.texto;
+    $$('.voz-opcao').forEach((x) => x.classList.toggle('ativa', x === b));
+    contagem(); salvarVoz();
+  });
+  $$('.voz-slider input').forEach((r) => r.oninput = () => {
+    l[r.dataset.k] = +r.value;
+    $(`#vzV_${r.dataset.k}`).textContent = (+r.value).toFixed(2);
+    if (r.dataset.k === 'velocidade') contagem();
+    salvarVoz();
+  });
+  $('#vzEscolher').onclick = () => abrirSeletorVozes(l.voz, (v) => {
+    l.voz = v.id; l.vozNome = v.nome;
+    $('#vzVozNome').textContent = v.nome;
+    salvarVoz(true);
+  });
+
+  $('#vzGerarRoteiro').onclick = async () => {
+    await salvarVoz(true);
+    try {
+      const r = await api(`/api/projetos/${p.id}/locucao/roteiro`, { corpo: {} });
+      seguirJobVoz(r.job);
+    } catch (e) { toast(e.message, 'erro'); }
+  };
+
+  $('#vzGerarVoz').onclick = async (e) => {
+    const b = e.currentTarget;
+    if (!l.voz) { toast('Escolha uma voz primeiro (🎧 Escolher voz).', 'erro'); return; }
+    if (!l.texto.trim()) { toast('Escreva ou gere o roteiro primeiro.', 'erro'); return; }
+    await salvarVoz(true);
+    b.disabled = true; b.textContent = '🎙 Gravando a locução…';
+    try {
+      const r = await api(`/api/projetos/${p.id}/locucao/take`, { corpo: {} });
+      vz.l = r.locucao;
+      desenharEstudioVoz();
+      toast(`Take pronto: ${r.take.duracao.toFixed(1)}s`, 'ok');
+      $('.voz-take audio')?.play().catch(() => {});
+    } catch (err) { toast(err.message, 'erro'); b.disabled = false; b.textContent = '🎙 Gerar voz'; }
+  };
+
+  $$('.voz-take').forEach((el) => {
+    const arq = el.dataset.arq;
+    $$('[data-acao]', el).forEach((b) => b.onclick = async () => {
+      const acao = b.dataset.acao;
+      if (acao === 'junto') {
+        $$('.voz-take audio').forEach((a) => a.pause());
+        vz.audio.pause();
+        vz.audio.src = `/p/${p.id}/audio/${arq}`;
+        const f = reiniciar();
+        f.onload = () => { f.onload = null; vz.audio.currentTime = 0; vz.audio.play().catch(() => toast('O navegador bloqueou o som. Clique de novo.', 'erro')); };
+      } else if (acao === 'apagar') {
+        if (!confirm('Apagar este take?')) return;
+        vz.l = await api(`/api/projetos/${p.id}/locucao/take/${encodeURIComponent(arq)}`, { method: 'DELETE' });
+        desenharEstudioVoz();
+      } else if (acao === 'usar') {
+        b.disabled = true; b.textContent = 'Colocando…';
+        try {
+          const r = await api(`/api/projetos/${p.id}/locucao/usar`, { corpo: { arquivo: arq } });
+          const j = await acompanharJob(r.job.id, (x) => { b.textContent = x.ultima ? x.ultima.slice(0, 38) + '…' : 'Colocando…'; });
+          if (j.status === 'erro') throw new Error(j.erro || 'Falhou');
+          mostrarVozColocada(p);
+        } catch (err) { toast(err.message, 'erro'); }
+        b.disabled = false; b.textContent = '✔ Colocar no vídeo';
+      }
+    });
+  });
+}
+
+function seguirJobVoz(job) {
+  const caixa = $('#vzJob');
+  if (!caixa) return;
+  caixa.hidden = false;
+  $('#vzGerarRoteiro').disabled = true;
+  const id = vz.id;
+  acompanharJob(job.id, (j) => {
+    if (!$('#vzJob')) return;
+    $('#vzJob i').style.width = Math.round((j.progresso || 0) * 100) + '%';
+    $('#vzJob small').textContent = j.ultima || j.rotulo || '';
+  }).then(async (j) => {
+    if (j.status === 'erro') toast(j.erro || 'Falhou', 'erro');
+    else toast('Roteiro pronto — escolha uma das opções.', 'ok');
+    if (vz.id === id) await carregarEstudioVoz(id);
+  });
+}
+
+function mostrarVozColocada(p) {
+  $('#modal').innerHTML = `<div class="modal-caixa simples"><button class="fechar">×</button>
+    <h2>✔ Voz colocada no vídeo</h2>
+    <p>A locução agora é a voz do projeto <b>${esc(p.nome)}</b> (aba Som → “Meu áudio gravado”) e entra no <b>Renderizar</b> e no <b>🔊 Assistir com som</b>.</p>
+    <p>Quer que a animação acompanhe essa voz? A IA refaz os tempos para cada texto e cena entrarem quando a voz fala aquilo. Vira uma versão nova; a atual continua salva.</p>
+    <div class="voz-linha" style="margin-top:14px">
+      <button class="btn primario" id="vcSinc">✦ Sincronizar a animação com a voz</button>
+      <button class="btn" id="vcAbrir">Abrir o projeto</button>
+    </div></div>`;
+  $('#modal').hidden = false;
+  $('#modal .fechar').onclick = fecharModal;
+  $('#vcAbrir').onclick = () => { fecharModal(); estado.abaProjeto = 'som'; abrirProjeto(p.id); };
+  $('#vcSinc').onclick = async () => {
+    try {
+      await api(`/api/projetos/${p.id}/audio/sincronizar`, { corpo: { ajustarDuracao: true } });
+      fecharModal();
+      toast('Sincronizando a animação com a voz…', 'ok');
+      estado.abaProjeto = 'refinar';
+      abrirProjeto(p.id);
+    } catch (e) { toast(e.message, 'erro'); }
+  };
+}
+
 function seguirHash() {
   const [vista, id] = location.hash.slice(1).split('/');
   if (vista === 'projetos' && id) abrirProjeto(id);
-  else if (['modelos', 'projetos', 'editor'].includes(vista)) irPara(vista);
+  else if (['modelos', 'projetos', 'voz', 'editor'].includes(vista)) irPara(vista);
 }
 window.addEventListener('hashchange', seguirHash);
 

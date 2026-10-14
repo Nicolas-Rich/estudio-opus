@@ -15,6 +15,7 @@
     <nav class="abas">
       <button data-vista="modelos" class="ativa">Modelos <span class="cont" id="contModelos">…</span></button>
       <button data-vista="projetos">Projetos <span class="cont" id="contProjetos">0</span></button>
+      <button data-vista="voz">🎙 Voz</button>
       <button data-vista="editor">Editor</button>
     </nav>
     <div class="topo-dir">
@@ -51,6 +52,18 @@
       <div id="gradeProjetos" class="grade-projetos"></div>
     </div>
     <div id="detalheProjeto" hidden></div>
+  </main>
+
+  <!-- ===================== ESTÚDIO DE VOZ ===================== -->
+  <main id="vista-voz" class="vista">
+    <div class="voz-topo">
+      <div>
+        <h1>Estúdio de voz</h1>
+        <p class="sub">A IA assiste ao vídeo e escreve o roteiro → você ajusta → a ElevenLabs grava a locução inteira de uma vez → você ouve com o vídeo e coloca no projeto.</p>
+      </div>
+      <label class="voz-proj">Projeto<select id="vzProjeto"></select></label>
+    </div>
+    <div class="voz-grade" id="vozGrade"></div>
   </main>
 
   <!-- ===================== EDITOR ===================== -->

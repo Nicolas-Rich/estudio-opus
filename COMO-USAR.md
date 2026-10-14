@@ -57,18 +57,24 @@ Também dá para começar já com a locução: no **Usar este modelo**, envie o 
 
 **ElevenLabs**: o modelo padrão é o **Eleven v4**. Com a permissão **Voices (Read e Write)** na chave, a lista mostra as **suas vozes** e as **vozes brasileiras da Voice Library** com o nome exato do site, busca por nome e ▶ amostra. A primeira vez que você usa uma voz da biblioteca, ela é adicionada à sua conta e ocupa um slot de voz do seu plano.
 
-**Efeitos sonoros**: há três fontes de som.
-- **Sintetizados pelo Claude** (grátis): o Claude escreve um sintetizador Web Audio sob medida com whooshes, impactos, risers e shimmer, mais uma batida de fundo opcional.
-- **ElevenLabs Sound Effects**: cada momento vira um efeito gerado por IA, que fica salvo na biblioteca e não é cobrado de novo.
-- **Minha biblioteca**: sons seus, guardados em `dados/biblioteca-sfx/`. O Claude escolhe o arquivo certo para cada momento.
+**Sonoplastia (efeitos sonoros):** a IA **assiste ao vídeo** (quadros, cortes, movimento, flashes, locução e código) e cria um desenho de som de cinema:
+- impactos no quadro, risers que terminam na revelação e camadas;
+- pan, reverb, silêncios dramáticos, ambiência e stinger final.
 
-Primeiro clique em **Mapear momentos com Claude** e ajuste a lista (tempo, duração, descrição, volume). Depois clique em **Gerar efeitos**.
+Escolha a fonte (**ElevenLabs** recomendado, síntese grátis ou sua biblioteca), o estilo e a intensidade. Depois clique em **👁 Assistir ao vídeo e desenhar o som** e em **🔊 Gerar sonoplastia**. Cada som pode ser ajustado (tempo, alinhamento, volume, pan, reverb), ouvido isolado (▶) ou trocado por outra variação (↻).
 
 **🔊 Assistir com som** toca a animação junto com a voz e os efeitos. No **Renderizar**, a caixa "incluir voz e efeitos" mixa tudo no MP4.
 
 **Chave da ElevenLabs**: clique no **⚙** no topo e cole a chave criada em elevenlabs.io → Settings → API Keys. Ela fica salva só neste PC, em `dados/config.json`.
 
 **CapCut**: a licença dos sons do CapCut só vale dentro do próprio CapCut. Para usar esses sons, exporte daqui com a caixa "incluir voz e efeitos" desmarcada (ou só com a voz) e faça a sonorização final no CapCut Pro, usando os sons marcados para uso comercial.
+
+### 🎙 Estúdio de voz (aba Voz)
+1. A IA assiste ao vídeo e escreve **3 opções de roteiro** e uma direção de voz.
+2. Você edita o texto. Há contador de palavras e botões de tags de emoção.
+3. A ElevenLabs grava a **locução inteira de uma vez**. Os controles são os do site: velocidade, estabilidade, similaridade e estilo.
+4. Cada geração vira um **take** que você pode ouvir com o vídeo ou baixar.
+5. **✔ Colocar no vídeo** transforma o take na voz do projeto. Depois, se quiser, **sincronize a animação** com essa voz.
 
 ### 3. Editor (estilo CapCut)
 **Timeline**: régua de tempo e **cabeçote** (a linha laranja). Clique ou arraste na régua para navegar. As faixas são:

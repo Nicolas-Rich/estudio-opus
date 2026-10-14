@@ -266,7 +266,8 @@ app.post('/api/assistente', async (req, res) => {
     // pasta só deste pedido, com as imagens dele (+ quadro do vídeo original do modelo)
     const pastaAssist = path.join(PASTAS.temp, `assist-${novoId()}`);
     const imgsAssist = await moverImagens(req.body?.imagens, pastaAssist);
-    if (base) { const o = await quadroOriginal(base.slug, pastaAssist); if (o) imgsAssist.push(o); }
+    if (req.body?.videoRef) imgsAssist.push(...await quadrosDaReferencia(req.body.videoRef, pastaAssist));
+    else if (base) { const o = await quadroOriginal(base.slug, pastaAssist); if (o) imgsAssist.push(o); }
     const texto = await gerarPromptDeIdeia({
       ideia, ajustes, modeloBase: base?.prompt, referencias, modelo: modelo || 'claude-sonnet-5-5',
       imagens: imgsAssist, pastaImagens: imgsAssist.length ? pastaAssist : undefined,
@@ -352,7 +353,10 @@ app.post('/api/projetos', async (req, res) => {
     projeto.imagens = await moverImagens(imagensEnviadas, path.join(pastaProjeto(id), 'assets'));
   }
   // partindo de um modelo: o quadro do vídeo original vai como referência de fidelidade
-  if (slug && req.body?.fiel !== false) {
+  if (req.body?.videoRef) {
+    const qs = await quadrosDaReferencia(req.body.videoRef, path.join(pastaProjeto(id), 'assets'));
+    if (qs.length) projeto.imagens = [...(projeto.imagens || []), ...qs];
+  } else if (slug && req.body?.fiel !== false) {
     const orig = await quadroOriginal(slug, path.join(pastaProjeto(id), 'assets'));
     if (orig) projeto.imagens = [...(projeto.imagens || []), orig];
   }
@@ -492,6 +496,65 @@ async function moverImagens(lista, destino) {
   for (const i of ok) await fs.copyFile(path.join(PASTA_IMG_TEMP, i.arquivo), path.join(destino, i.arquivo));
   return ok;
 }
+// ---- vídeo de referência enviado pelo usuário: vira uma sequência de quadros com tempo
+const PASTA_REF = path.join(PASTAS.temp, 'video-ref');
+await fs.mkdir(PASTA_REF, { recursive: true });
+app.use('/arquivos/video-ref', express.static(PASTA_REF));
+const EXT_VIDEO = /^.(mp4|mov|webm|mkv|avi|m4v|gif)$/i;
+
+function extrairQuadro(video, t, saida) {
+  return new Promise((ok, falha) => {
+    const p = spawn(FFMPEG_BIN, ['-y', '-loglevel', 'error', '-ss', t.toFixed(2), '-i', video, '-frames:v', '1', '-vf', "scale='if(gt(ih,iw),-2,min(960,iw))':'if(gt(ih,iw),min(960,ih),-2)'", saida]);
+    p.on('error', falha);
+    p.on('close', (code) => (code === 0 ? ok() : falha(new Error('ffmpeg ' + code))));
+  });
+}
+
+app.post('/api/video-referencia', async (req, res) => {
+  const original = path.basename(String(req.query.nome || 'referencia.mp4'));
+  const ext = path.extname(original).toLowerCase();
+  if (!EXT_VIDEO.test(ext)) return res.status(400).json({ erro: 'Envie um vídeo (MP4, MOV, WEBM, MKV, AVI ou GIF).' });
+  const id = `ref-${novoId()}`;
+  const pasta = path.join(PASTA_REF, id);
+  await fs.mkdir(pasta, { recursive: true });
+  const arq = path.join(pasta, 'video' + ext);
+  try {
+    await new Promise((ok, falha) => { const ws = createWriteStream(arq); req.pipe(ws); ws.on('finish', ok); ws.on('error', falha); });
+    const info = await sondar(arq);
+    if (!info.largura || !info.duracao) throw new Error('Não consegui ler esse vídeo.');
+    // quadros espalhados pelo vídeo inteiro (~1 a cada 1,5 s, entre 5 e 12)
+    const n = Math.min(12, Math.max(5, Math.round(info.duracao / 1.5)));
+    const quadros = [];
+    for (let k = 0; k < n; k++) {
+      const t = Math.min(info.duracao - 0.05, (info.duracao * (k + 0.5)) / n);
+      const nome = `ref-${String(k + 1).padStart(2, '0')}-${t.toFixed(1)}s.png`;
+      await extrairQuadro(arq, t, path.join(pasta, nome));
+      quadros.push({ arquivo: nome, t: +t.toFixed(2), url: `/arquivos/video-ref/${id}/${nome}` });
+    }
+    const meta = { id, nomeOriginal: original, duracao: info.duracao, largura: info.largura, altura: info.altura, temAudio: info.temAudio, quadros };
+    await gravarJson(path.join(pasta, 'meta.json'), meta);
+    res.json(meta);
+  } catch (e) {
+    await fs.rm(pasta, { recursive: true, force: true });
+    res.status(400).json({ erro: e.message });
+  }
+});
+
+/** Copia os quadros do vídeo de referência para a pasta e devolve as entradas de imagem (papel "original", com tempo). */
+async function quadrosDaReferencia(idRef, destino) {
+  if (!/^ref-[a-z0-9]+$/i.test(idRef || '')) return [];
+  const pasta = path.join(PASTA_REF, idRef);
+  const meta = await lerJson(path.join(pasta, 'meta.json'), null);
+  if (!meta) return [];
+  await fs.mkdir(destino, { recursive: true });
+  const saida = [];
+  for (const q of meta.quadros) {
+    await fs.copyFile(path.join(pasta, q.arquivo), path.join(destino, q.arquivo));
+    saida.push({ arquivo: q.arquivo, papel: 'original', t: q.t, descricao: `quadro do vídeo de referência em ${q.t.toFixed(1)}s de ${meta.duracao.toFixed(1)}s (${meta.largura}×${meta.altura})` });
+  }
+  return saida;
+}
+
 app.get('/p/:id/assets/:arquivo', (req, res) => {
   if (!idValido(req.params.id)) return res.status(400).end();
   const arq = path.join(pastaProjeto(req.params.id), 'assets', path.basename(req.params.arquivo));
@@ -561,7 +624,7 @@ app.post('/api/projetos/:id/render', async (req, res) => {
 
 audioHooks = registrarRotasAudio(app, {
   DADOS, PASTAS, lerProjeto, salvarProjeto, pastaProjeto, criarJob, msgJob, jobPublico, lerJson, gravarJson, slugify,
-  montarPedido, montarSincronia, iniciarGeracao,
+  montarPedido, montarSincronia, iniciarGeracao, renderizarHtml, BASE,
 });
 
 // ---- jobs

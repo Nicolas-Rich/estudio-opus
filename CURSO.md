@@ -218,6 +218,8 @@ Tudo isso fica na aba **Som** do projeto.
 3. Ajuste o texto das falas. Escreva números por extenso para a pronúncia sair certa ("trinta gramas").
 4. Clique em **🎙 Gerar voz**. Cada fala mostra a duração; aparece ⚠ quando uma fala invade a próxima.
 
+> 💡 **Roteiro sob medida:** antes de escrever, a IA assiste ao vídeo e escreve cada fala dentro do limite de palavras que cabe no tempo. Cada fala mostra o contador **palavras/máximo**, que fica vermelho se passar do limite. Ao gerar, o estúdio mede a duração real das falas e **nunca deixa uma passar por cima da outra**: se precisar, acelera um pouco (até 1,2×, sem mudar o tom, marcado com ⏩) ou faz a próxima esperar (marcado com ↦).
+
 ### 5.3 Configurar a ElevenLabs
 1. Em **elevenlabs.io → Settings → API Keys**, crie uma chave com as permissões:
    - **Text to Speech**
@@ -237,20 +239,45 @@ Tudo isso fica na aba **Som** do projeto.
 3. **Atraso do áudio:** um valor positivo empurra a fala para depois; um negativo corta o começo.
 4. Clique em **✦ Sincronizar a animação com o meu áudio**. O Claude refaz os tempos para cada texto entrar quando você fala aquilo.
 
-### 5.5 Efeitos sonoros
+### 5.5 Sonoplastia (efeitos sonoros) com qualidade de cinema
+A IA **assiste ao vídeo** antes de criar o som:
+- vê quadros com o tempo de cada um;
+- detecta os cortes de cena, os picos de movimento (e de que lado), os flashes de luz e os trechos calmos;
+- lê a sua locução e o código da animação.
+
+Com isso ela monta um **desenho de som** com intenção: impactos no quadro exato, risers que terminam na revelação, camadas nos momentos-chave, pan seguindo o movimento, reverb, silêncios dramáticos antes do clímax, ambiência contínua e um stinger no final.
+
 1. Escolha de onde vêm os sons:
-   - **Sintetizados pelo Claude (grátis):** whooshes, impactos, risers e, se quiser, uma batida de fundo;
-   - **ElevenLabs Sound Effects:** efeitos realistas gerados por IA;
-   - **Minha biblioteca:** sons seus (comprados ou CC0). O Claude escolhe o arquivo certo para cada momento.
-2. Clique em **✦ Mapear momentos com Claude**. Ele marca onde cada efeito entra; ajuste se quiser.
-3. Clique em **🔊 Gerar efeitos**.
+   - **ElevenLabs Sound Effects** (recomendado): sons gerados por IA, com qualidade de cinema. Usa créditos da sua conta.
+   - **Sintetizados pela IA em código** (grátis): mais simples.
+   - **Minha biblioteca:** sons seus (comprados ou CC0), e a IA escolhe o arquivo certo para cada momento.
+2. Escolha o **estilo** (Cinematográfico, Tech, Luxo, Energia, Orgânico, Suspense, Pop, Game) e a **intensidade** (Sutil, Equilibrado ou Intenso/trailer). Deixe marcada a **ambiência contínua**.
+3. Clique em **👁 Assistir ao vídeo e desenhar o som**. Aparecem:
+   - o **conceito sonoro**;
+   - uma linha do tempo com movimento, cortes, falas e cada som;
+   - a lista de sons, com o **porquê** de cada um (💡).
+4. Ajuste o que quiser: tempo, alinhamento ("começa em", "termina em", "centro em"), volume, **pan** e **reverb**. Em **↻** você troca só aquele som por outra variação.
+5. Clique em **🔊 Gerar sonoplastia**. O estúdio gera cada som, trata (corta o silêncio do começo para o impacto cair no quadro, aplica EQ, pan e reverb de sala) e mixa como no cinema. Clique em **▶** em cada som para ouvi-lo isolado.
+
+> 💡 Sons já gerados ficam salvos: mexer em volume, pan, tempo ou reverb **não gasta créditos de novo**, só remixa (leva segundos).
 
 ### 5.6 Ouvir tudo junto
-Clique em **🔊 Assistir com som**, embaixo da animação.
+Na aba Som, clique em **▶ Assistir ao vídeo com voz + efeitos**, logo abaixo dos sons gerados, ou em **🔊 Assistir com som**, embaixo da animação.
 
 > 💡 No vídeo final, os efeitos **abaixam sozinhos** quando há fala, e a voz é normalizada para o nível de locução.
 
 ✅ **Checklist:** você ouviu a animação com voz e efeitos.
+
+### 5.7 Estúdio de voz (aba 🎙 Voz), a locução com melhor qualidade
+Use esta aba quando quiser uma locução de locutor profissional. A voz é gravada **inteira de uma vez** na ElevenLabs, com entonação contínua, e não frase por frase.
+1. No topo, escolha o **projeto**.
+2. **Gerador de roteiro**: diga sobre o que a voz deve falar (produto, oferta), o tom e a chamada final. Clique em **👁 Assistir ao vídeo e gerar roteiro**. A IA assiste ao vídeo e entrega **3 opções** (direta, emocional, curiosidade), mais uma **direção de voz**.
+3. Clique na opção que preferir e ajuste o texto em **Roteiro final**. O contador mostra quantas palavras cabem no vídeo. Os botões (animado, sussurro, pausa…) inserem **tags de emoção** da ElevenLabs.
+4. Escolha a **voz** e o modelo e ajuste os controles iguais aos do site da ElevenLabs: velocidade, estabilidade, similaridade e exagero de estilo.
+5. Clique em **🎙 Gerar voz**. Cada clique cria um **take**: ouça, use **▶ Ouvir com o vídeo** e compare.
+6. No take escolhido, clique em **✔ Colocar no vídeo**. Se quiser, clique também em **✦ Sincronizar a animação com a voz**: a IA ajusta o tempo de cada cena para a fala.
+
+> 💡 Cada take gasta créditos da ElevenLabs. Acerte o roteiro antes de gerar. Também dá para baixar o MP3 de cada take (⬇).
 
 ---
 
