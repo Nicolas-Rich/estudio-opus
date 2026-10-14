@@ -535,3 +535,6 @@ body.arrastando-midia .tl-clipes, body.arrastando-midia .tl-musica, body.arrasta
 .voz-tempo { display: flex; gap: 10px; flex-wrap: wrap; }
 .voz-tempo > label { flex: 1; min-width: 140px; }
 #vzTempoInfo { margin-top: -6px; }
+.voz-selo { font-size: 11px; color: var(--ok); background: rgba(62,207,142,.12); padding: 1px 7px; border-radius: 99px; }
+.voz-mapa { position: relative; height: 10px; background: var(--painel); border: 1px solid var(--borda); border-radius: 4px; overflow: hidden; }
+.voz-mapa i { position: absolute; top: 1px; bottom: 1px; background: var(--acento); border-radius: 2px; opacity: .85; }

@@ -2908,10 +2908,12 @@ function desenharEstudioVoz() {
         const longo = t.duracao > duracao + 0.05;
         return `
         <div class="voz-take" data-arq="${esc(t.arquivo)}">
-          <div class="voz-take-topo"><b>Take ${nTakes - i}</b><span class="mono ${longo ? 'erro-txt' : ''}">${t.duracao.toFixed(1)}s${longo ? ' ⚠ maior que o vídeo' : ''}</span><small>${esc(t.vozNome || '')}</small></div>
+          <div class="voz-take-topo"><b>Take ${nTakes - i}</b>${t.encaixeDe ? '<span class="voz-selo">🎯 encaixado no vídeo</span>' : ''}<span class="mono ${longo ? 'erro-txt' : ''}">${t.duracao.toFixed(1)}s${longo ? ' ⚠ maior que o vídeo' : ''}</span><small>${esc(t.vozNome || '')}</small></div>
+          ${t.blocos ? `<div class="voz-mapa" title="Onde cada frase entra no vídeo">${t.blocos.map((b) => `<i style="left:${(b.inicio / duracao) * 100}%;width:${(b.dur / duracao) * 100}%" title="${b.inicio.toFixed(1)}s · ${esc(b.texto)}"></i>`).join('')}</div>` : ''}
           <audio controls preload="none" src="/p/${p.id}/audio/${esc(t.arquivo)}"></audio>
           <div class="voz-take-acoes">
             <button class="btn mini" data-acao="junto">▶ Ouvir com o vídeo</button>
+            ${!t.encaixeDe && !longo && t.duracao < duracao - 1 ? `<button class="btn mini" data-acao="encaixar" title="A IA espalha as frases pelo vídeo, cada uma na cena certa (sem mudar a voz)">🎯 Encaixar nos ${duracao}s</button>` : ''}
             <button class="btn mini primario" data-acao="usar">✔ Colocar no vídeo</button>
             <a class="btn mini" href="/p/${p.id}/audio/${esc(t.arquivo)}" download="locucao-take${nTakes - i}.mp3" title="Baixar MP3">⬇</a>
             <button class="btn mini perigo" data-acao="apagar" title="Apagar take">✕</button>
@@ -3007,8 +3009,10 @@ function desenharEstudioVoz() {
       const r = await api(`/api/projetos/${p.id}/locucao/take`, { corpo: {} });
       vz.l = r.locucao;
       desenharEstudioVoz();
-      toast(`Take pronto: ${r.take.duracao.toFixed(1)}s`, 'ok');
-      $('.voz-take audio')?.play().catch(() => {});
+      // voz mais curta que o vídeo: encaixa sozinho (cada frase na cena certa)
+      const auto = $('.voz-take [data-acao="encaixar"]');
+      if (auto) { toast(`Take pronto (${r.take.duracao.toFixed(1)}s). Encaixando automaticamente nos ${duracao}s do vídeo…`, 'ok'); auto.click(); }
+      else { toast(`Take pronto: ${r.take.duracao.toFixed(1)}s`, 'ok'); $('.voz-take audio')?.play().catch(() => {}); }
     } catch (err) { toast(err.message, 'erro'); b.disabled = false; b.textContent = '🎙 Gerar voz'; }
   };
 
@@ -3022,6 +3026,16 @@ function desenharEstudioVoz() {
         vz.audio.src = `/p/${p.id}/audio/${arq}`;
         const f = reiniciar();
         f.onload = () => { f.onload = null; vz.audio.currentTime = 0; vz.audio.play().catch(() => toast('O navegador bloqueou o som. Clique de novo.', 'erro')); };
+      } else if (acao === 'encaixar') {
+        b.disabled = true; b.textContent = 'Encaixando…';
+        try {
+          const r = await api(`/api/projetos/${p.id}/locucao/encaixar`, { corpo: { arquivo: arq } });
+          const j = await acompanharJob(r.job.id, (x) => { b.textContent = x.ultima ? x.ultima.slice(0, 38) + '…' : 'Encaixando…'; });
+          if (j.status === 'erro') throw new Error(j.erro || 'Falhou');
+          toast('Voz encaixada no vídeo — ouça o novo take com “▶ Ouvir com o vídeo”.', 'ok');
+          vz.l = await api(`/api/projetos/${p.id}/locucao`);
+          desenharEstudioVoz();
+        } catch (err) { toast(err.message, 'erro'); b.disabled = false; b.textContent = '🎯 Encaixar no vídeo'; }
       } else if (acao === 'apagar') {
         if (!confirm('Apagar este take?')) return;
         vz.l = await api(`/api/projetos/${p.id}/locucao/take/${encodeURIComponent(arq)}`, { method: 'DELETE' });

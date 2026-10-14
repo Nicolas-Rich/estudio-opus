@@ -275,7 +275,8 @@ Use esta aba quando quiser uma locução de locutor profissional. A voz é grava
 3. Clique na opção que preferir e ajuste o texto em **Roteiro final**. O contador mostra quantas palavras cabem no vídeo. Os botões (animado, sussurro, pausa…) inserem **tags de emoção** da ElevenLabs.
 4. Escolha a **voz** e o modelo e ajuste os controles iguais aos do site da ElevenLabs: velocidade, estabilidade, similaridade e exagero de estilo.
 5. Clique em **🎙 Gerar voz**. Cada clique cria um **take**: ouça, use **▶ Ouvir com o vídeo** e compare.
-6. No take escolhido, clique em **✔ Colocar no vídeo**. Se quiser, clique também em **✦ Sincronizar a animação com a voz**: a IA ajusta o tempo de cada cena para a fala.
+6. Se a voz sair mais curta que o vídeo, o estúdio **encaixa sozinho**: a IA espalha as frases pelo vídeo, cada uma na cena em que o assunto aparece, e cria um take “🎯 encaixado” com a duração do vídeo. Dá para usar também o botão **🎯 Encaixar** em qualquer take.
+7. No take escolhido, clique em **✔ Colocar no vídeo**. Se quiser, clique também em **✦ Sincronizar a animação com a voz**: a IA ajusta o tempo de cada cena para a fala.
 
 > 💡 Cada take gasta créditos da ElevenLabs. Acerte o roteiro antes de gerar. Também dá para baixar o MP3 de cada take (⬇).
 
