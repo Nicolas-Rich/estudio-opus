@@ -78,3 +78,8 @@ test('extrairJson aceita bloco cercado e texto com lixo em volta', () => {
   assert.deepEqual(extrairJson('blá {"a":{"b":2}} blá'), { a: { b: 2 } });
   assert.throws(() => extrairJson('nada aqui'));
 });
+
+test('I7: ids viram seguros para caminho de arquivo', () => {
+  const { plano: p } = validarPlano(plano({ elementos: [el('../../x', 1, 2), el('título 3', 2, 3)] }), { duracao: 10 });
+  for (const e of p.elementos) assert.match(e.id, /^[\w-]+$/);
+});

@@ -35,3 +35,9 @@ test('lerSilencios lê início e fim do silencedetect', () => {
 test('silêncio que vai até o fim do vídeo fecha na duração', () => {
   assert.deepEqual(lerSilencios('silence_start: 8.2', 10), [{ inicio: 8.2, fim: 10 }]);
 });
+
+test('I2: áudio mais curto que o vídeo é completado e alinhado ao vídeo', () => {
+  const a = argsNormalizar({ entrada: 'in.mov', saida: 'out.mp4', temAudio: true }).join(' ');
+  assert.match(a, /aresample=async=1:first_pts=0,apad/);
+  assert.match(a, /-shortest/);
+});

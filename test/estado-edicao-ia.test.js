@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { recuperarEstado, extensaoDeVideo, proximoElemento } from '../lib/edicao-ia/estado.js';
+import { recuperarEstado, extensaoDeVideo, proximoElemento, nomeMidiaBase, deveMontarAutomatico } from '../lib/edicao-ia/estado.js';
 
 test('ao reabrir, elementos em andamento voltam para a fila e a geração fica pausada', () => {
   const e = recuperarEstado({ etapa: 'gerando', elementos: { e1: { status: 'gerando' }, e2: { status: 'renderizando' }, e3: { status: 'pronto', versao: 1 } } });
@@ -29,4 +29,15 @@ test('próximo elemento segue a ordem do plano', () => {
   assert.equal(proximoElemento(plano, { a: { status: 'fila' }, b: { status: 'fila' } }), 'b');
   assert.equal(proximoElemento(plano, { a: { status: 'fila' }, b: { status: 'pronto' } }), 'a');
   assert.equal(proximoElemento(plano, { a: { status: 'pronto' }, b: { status: 'erro' } }), null);
+});
+
+test('C2: cada preparação usa um nome novo para o vídeo base na Mídia', () => {
+  assert.notEqual(nomeMidiaBase('eiaabc', 'p1'), nomeMidiaBase('eiaabc', 'p2'));
+  assert.match(nomeMidiaBase('eiaabc', 'p1'), /^edicao-ia-eiaabc-base-p1\.mp4$/);
+});
+
+test('I5: montar sozinho só no modo automático e com tudo pronto', () => {
+  assert.equal(deveMontarAutomatico({ automatico: true, etapa: 'pronto' }), true);
+  assert.equal(deveMontarAutomatico({ automatico: true, etapa: 'pausado' }), false);
+  assert.equal(deveMontarAutomatico({ automatico: false, etapa: 'pronto' }), false);
 });

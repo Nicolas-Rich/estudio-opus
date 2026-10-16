@@ -5,7 +5,7 @@ import { mapaTempo, estadoDaImagem, montarEdicao, furoDaPessoa } from '../lib/ed
 test('tela cheia com a pessoa no canto ganha um furo onde ela está', () => {
   const movs = [{ inicio: 5, fim: 7, tipo: 'canto', canto: 'inferior-esquerdo', escala: 0.4 }];
   const furo = furoDaPessoa(movs, { inicio: 5, fim: 7, camada: 'tela-cheia' });
-  const meio = furo.find((q) => Math.abs(q.t - 1) < 0.04);
+  const meio = furo.filter((q) => q.t <= 1).at(-1); // patamares são compactados (C1): vale o último quadro até 1 s
   // escala 0,4 → 432×768 px, centro em (24 %, 76 %) → canto superior esquerdo em (43, 1075)
   assert.deepEqual([meio.x, meio.y, meio.w, meio.h], [43, 1075, 432, 768]);
   assert.equal(furo[0].t, 0);
@@ -53,7 +53,7 @@ test('movimento que atravessa um corte é dividido entre os clipes', () => {
   const [c1, c2] = montarEdicao({ plano, midiaBase: 'b', edicaoId: 'x', elementosProntos: [] }).clipes;
   assert.equal(c1.movimento.at(-1).escala, 0.38);
   assert.equal(c2.movimento[0].escala, 0.38);
-  assert.equal(c2.movimento[0].t, 0);
+  assert.equal(c2.movimento[0].t, 4.5); // I6: quadros em tempo de mídia (o clipe começa em 4,5 s)
 });
 
 test('sobreposição em pixels e em tempo editado; só entram elementos prontos', () => {
@@ -81,4 +81,9 @@ test('legendas ligadas com as palavras nos tempos editados; palavras cortadas sa
   assert.equal(ed.legendas.ativo, true);
   assert.deepEqual(ed.legendas.palavras.map((w) => [w.p, w.inicio]), [['oi', 0.2], ['tchau', 2.1]]);
   assert.ok(ed.legendas.itens.length >= 1);
+});
+
+test('I4: a edição montada não herda a música da edição anterior', () => {
+  const ed = montarEdicao({ plano: { estilo, manter: [{ inicio: 0, fim: 4 }], movimentos: [], elementos: [] }, midiaBase: 'b', edicaoId: 'x', elementosProntos: [] });
+  assert.equal(ed.musica, null);
 });

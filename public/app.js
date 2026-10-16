@@ -2041,7 +2041,7 @@ function mostrarQuadro() {
     const local = Math.max(0, cab - it.inicio);
     const m = c.tipo === 'cartela' ? null : midiaPorNome(c.midia);
     $('#palcoMidia').style.filter = cssFiltro(c.filtro);
-    $('#palcoMidia').style.transform = transformMovimento(c.movimento, local * velC(c));
+    $('#palcoMidia').style.transform = transformMovimento(c.movimento, (+c.inicio || 0) + local * velC(c));
     // transição: mergulho de opacidade no trecho de sobreposição (o vídeo exportado usa a transição real)
     const xAnt = i > 0 ? L.itens[i - 1].x : 0;
     $('#palcoMidia').style.opacity = xAnt > 0 && local < xAnt ? (0.35 + 0.65 * (local / xAnt)).toFixed(2) : '1';
@@ -3763,11 +3763,14 @@ function acompanharEia(job) {
     caixa.querySelector('small').textContent = j.ultima || 'trabalhando…';
   };
   let ultimo = 0;
+  const montadoAntes = eia.d?.estado?.montado;
   acompanharJob(job.id, (j) => { atualizar(j); if (Date.now() - ultimo > 4000 && estado.vista === 'edicaoia') { ultimo = Date.now(); api(`/api/edicao-ia/${eia.id}`).then((d) => { eia.d = d; desenharEia(); atualizar(j); }).catch(() => {}); } })
     .then((j) => {
       eia.acompanhando.delete(job.id);
       if (j.status === 'ok') toast('Edição IA: ' + (j.ultima || 'pronto'), 'ok');
       else toast('Edição IA: ' + (j.erro || 'falhou'), 'erro');
+      // modo automático montou no servidor: o Editor aberto precisa recarregar para não sobrescrever
+      api(`/api/edicao-ia/${eia.id}`).then((d) => { if (d.estado.montado && d.estado.montado !== montadoAntes) { carregarMidia(); carregarEdicao(); } }).catch(() => {});
       if (estado.vista === 'edicaoia') abrirEdicaoIa();
     });
 }

@@ -42,3 +42,22 @@ test('ehLimiteClaude reconhece o aviso de limite e ignora outros erros', () => {
   assert.equal(ehLimiteClaude(new Error('Claude usage limit reached')), true);
   assert.equal(ehLimiteClaude(new Error('ffmpeg: erro')), false);
 });
+
+test('I1: erro de resposta cortada pelo "limite de tokens" NÃO é limite de uso', () => {
+  assert.equal(ehLimiteClaude(new Error('A resposta do Claude veio sem o começo do HTML (provavelmente cortada pelo limite de tokens).')), false);
+  assert.equal(ehLimiteClaude(new Error('Limite de saída atingido — o Claude está continuando')), false);
+});
+
+test('I3: render que falha não estraga o render.mov que já existia', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const { renderizarElemento } = await import('../lib/edicao-ia/elementos.js');
+  const pasta = fs.mkdtempSync(path.join(os.tmpdir(), 'eia-i3-'));
+  const dir = path.join(pasta, 'elementos', 'e1');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'render.mov'), 'BOM');
+  const render = async (o) => { fs.writeFileSync(o.saida, 'PELA-METADE'); throw new Error('Render cancelado'); };
+  await assert.rejects(renderizarElemento({ el: { id: 'e1', inicio: 0, fim: 1, camada: 'tela-cheia' }, pasta, url: 'x', render }));
+  assert.equal(fs.readFileSync(path.join(dir, 'render.mov'), 'utf8'), 'BOM');
+});

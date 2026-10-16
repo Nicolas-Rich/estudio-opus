@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exprPorPartes, filtroMovimento } from '../lib/movimento.js';
+import { exprPorPartes, filtroMovimento, movimentoNoClipe } from '../lib/movimento.js';
 
-// avalia a expressão do ffmpeg (if/lt) em JavaScript
-const avaliar = (expr, t) => new Function('t', 'iff', 'lt', `return ${expr.replace(/\bif\(/g, 'iff(')};`)(t, (c, a, b) => (c ? a : b), (a, b) => a < b);
+// avalia a expressão do ffmpeg (if/lt/gte) em JavaScript
+const avaliar = (expr, t) => new Function('t', 'iff', 'lt', 'gte', `return ${expr.replace(/\bif\(/g, 'iff(')};`)(t, (c, a, b) => (c ? a : b), (a, b) => +(a < b), (a, b) => +(a >= b));
 
 test('exprPorPartes interpola linearmente entre os quadros', () => {
   const e = exprPorPartes([{ t: 0, v: 1 }, { t: 0.35, v: 0.38 }]);
@@ -38,4 +38,26 @@ test('fundo de cor usa color= e não divide a entrada', () => {
   assert.match(g, /color=c=0x101010:s=1080x1920/);
   assert.doesNotMatch(g, /split/);
   assert.match(g, /\[m0\]$/);
+});
+
+test('C1: com 300 quadros a expressão continua certa (soma plana, sem if aninhado)', () => {
+  const q = Array.from({ length: 300 }, (_, i) => ({ t: i / 15, v: i % 2 ? 0.4 : 1 }));
+  const e = exprPorPartes(q);
+  assert.doesNotMatch(e, /if\(/);
+  assert.ok(Math.abs(avaliar(e, 1 / 30) - 0.7) < 1e-3); // tempos arredondados a 4 casas
+  assert.equal(avaliar(e, 100), q.at(-1).v);
+  assert.equal(avaliar(e, -1), 1);
+});
+
+test('C1: o ffmpeg aceita a expressão com 300 quadros', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { FFMPEG } = await import('../lib/ffmpeg.js');
+  const q = Array.from({ length: 300 }, (_, i) => ({ t: i / 15, v: 100 + (i % 7) * 10 }));
+  execFileSync(FFMPEG, ['-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=red:s=200x200:r=10:d=1',
+    '-vf', `scale=w='${exprPorPartes(q)}':h=100:eval=frame`, '-f', 'null', '-']);
+});
+
+test('I6: quadros em tempo de mídia viram tempo de saída do clipe (início e velocidade)', () => {
+  const r = movimentoNoClipe([{ t: 10, escala: 1, x: 50, y: 50 }, { t: 12, escala: 0.4, x: 24, y: 76 }], 10, 2);
+  assert.deepEqual(r.map((k) => k.t), [0, 1]);
 });
