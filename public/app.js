@@ -2951,12 +2951,12 @@ function desenharEstudioVoz() {
     const n = contarPalavras($('#vzTexto').value);
     const seg = n / ritmo;
     const el = $('#vzContagem');
-    el.textContent = `${n}/${alvo} palavras · ~${fmtDur(seg)} de fala`;
-    // no modo "vídeo" passar do alvo é problema; nos outros é só referência (até 1000)
-    el.className = (l.modoTempo === 'video' ? n > alvo : n > MAX_PALAVRAS_VOZ) ? 'erro-txt' : '';
+    // o limite é 1000 palavras; o alvo (ex.: o que cabe no vídeo) é só referência
+    el.textContent = `${n}/${MAX_PALAVRAS_VOZ} palavras · ~${fmtDur(seg)} de fala${n <= MAX_PALAVRAS_VOZ && n > alvo ? ` · passa dos ${duracao}s do vídeo` : ''}`;
+    el.className = n > MAX_PALAVRAS_VOZ ? 'erro-txt' : n > alvo && l.modoTempo === 'video' ? 'aviso-txt' : '';
     const segAlvo = alvo / ritmo;
     $('#vzTempoInfo').textContent = l.modoTempo === 'video'
-      ? `A IA escreve até ${alvo} palavras para caber nos ${duracao}s do vídeo.`
+      ? `A IA escreve até ${alvo} palavras para caber nos ${duracao}s do vídeo. Você pode escrever até ${MAX_PALAVRAS_VOZ}: para a IA escrever mais, troque para “Definir nº de palavras”; depois de colocar a voz, use “Sincronizar a animação” para o vídeo ganhar o tempo da fala.`
       : `A IA escreve ~${alvo} palavras (~${fmtDur(segAlvo)} de fala).${segAlvo > duracao + 0.5 ? ` O vídeo tem ${duracao}s: depois de colocar a voz, use “Sincronizar a animação” para o vídeo ganhar o tempo da fala.` : ''}`;
   };
   contagem();

@@ -518,6 +518,7 @@ body.arrastando-midia .tl-clipes, body.arrastando-midia .tl-musica, body.arrasta
 .voz-tags button:hover { color: var(--texto); border-color: var(--acento); }
 #vzTexto { font-size: 14px; line-height: 1.55; min-height: 180px; }
 .erro-txt { color: var(--erro) !important; }
+.aviso-txt { color: var(--aviso) !important; }
 .voz-escolhida { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--painel-2); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; }
 .voz-escolhida small { display: block; color: var(--texto-3); font-size: 11px; }
 .voz-slider { display: grid; gap: 2px; }
