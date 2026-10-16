@@ -600,6 +600,49 @@ body.arrastando-midia .tl-clipes, body.arrastando-midia .tl-musica, body.arrasta
 .ger-video small { grid-column: 1; color: var(--texto-3); }
 .ger-video > :last-child { grid-row: 1 / span 2; grid-column: 2; }
 @media (max-width: 1100px) { .ger-grade { grid-template-columns: 1fr; } }
+
+/* ---------- Edição IA ---------- */
+.eia-corpo { display: grid; gap: 16px; max-width: 1100px; }
+.eia-corpo .voz-col { overflow: visible; }
+.eia-videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.eia-video { position: relative; display: grid; gap: 6px; padding: 8px; background: var(--painel-2); border: 1px solid var(--borda); border-radius: 8px; cursor: grab; }
+.eia-video.arrastando { opacity: .4; }
+.eia-video video { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 6px; background: #000; pointer-events: none; }
+.eia-video .eia-nome { font-size: 12px; color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eia-video .eia-num { position: absolute; top: 14px; left: 14px; z-index: 1; background: var(--acento); color: #fff; font-weight: 700; font-size: 12px; border-radius: 99px; padding: 1px 8px; }
+.eia-video button { position: absolute; top: 12px; right: 12px; z-index: 1; }
+.eia-add { display: grid; place-items: center; min-height: 120px; border: 1px dashed var(--borda); border-radius: 8px; color: var(--texto-2); cursor: pointer; font-size: 13px; }
+.eia-add:hover { border-color: var(--acento); color: var(--texto); }
+.eia-tl { position: relative; height: 34px; background: var(--fundo); border: 1px solid var(--borda); border-radius: 6px; overflow: hidden; }
+.eia-tl i { position: absolute; top: 0; bottom: 0; }
+.eia-tl i.fica { background: color-mix(in srgb, var(--ok) 35%, transparent); }
+.eia-tl i.corte { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--erro) 35%, transparent) 0 6px, transparent 6px 12px); cursor: pointer; }
+.eia-tl i.corte:hover { outline: 1px solid var(--erro); }
+.eia-tl b.marca { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--acento); }
+.eia-fala summary { cursor: pointer; color: var(--azul); font-size: 13px; }
+.eia-fala p { margin: 4px 0; font-size: 13px; }
+.eia-fala p.cortada { text-decoration: line-through; color: var(--texto-3); }
+.eia-fala .mono { color: var(--texto-3); font-size: 11px; margin-right: 6px; }
+.eia-plano { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.eia-card { display: grid; gap: 6px; padding: 10px; background: var(--painel-2); border: 1px solid var(--borda); border-radius: 8px; }
+.eia-card input[type=number] { width: 72px; }
+.eia-card textarea { font-size: 12px; }
+.eia-mov { display: inline-block; margin: 2px 4px 2px 0; padding: 1px 8px; border-radius: 99px; background: var(--painel-2); border: 1px solid var(--borda); font-size: 12px; }
+.eia-mov a { color: var(--erro); text-decoration: none; margin-left: 4px; }
+#eiaInstrucao { flex: 1; min-width: 200px; }
+.eia-elementos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.eia-el { display: grid; gap: 4px; padding: 8px; background: var(--painel-2); border: 1px solid var(--borda); border-radius: 8px; font-size: 12px; }
+.eia-el.erro { border-color: color-mix(in srgb, var(--erro) 50%, transparent); }
+.eia-el.pronto { border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.eia-prev { display: grid; place-items: center; aspect-ratio: 9 / 16; border-radius: 6px; overflow: hidden; color: var(--texto-3);
+  background: repeating-conic-gradient(#2a2e37 0 25%, #1d2027 0 50%) 0 0 / 16px 16px; }
+.eia-prev video { width: 100%; height: 100%; object-fit: contain; }
+/* Editor: elementos da Edição IA */
+.palco-midia { transform-origin: center; }
+.palco-sobre { position: absolute; inset: 0; pointer-events: none; }
+.palco-sobre video { position: absolute; object-fit: fill; }
+.bloco-elemento { background: linear-gradient(90deg, #2c3f8f, #4a3aa8); }
+.insp-mov { font-size: 12px; color: var(--texto-2); padding: 8px 10px; margin-bottom: 8px; border-radius: 8px; background: var(--painel-2); display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .kie-lista .vazio-grande { grid-column: 1 / -1; }
 .kie-mapa { display: grid; gap: 8px; background: var(--painel-2); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; }
 .kie-mapa select { flex: 1; }

@@ -18,6 +18,7 @@
       <button data-vista="voz">🎙 Voz</button>
       <button data-vista="kie">🎬 Cenas IA</button>
       <button data-vista="gerador">⚡ Opus Generator</button>
+      <button data-vista="edicaoia">✂ Edição IA</button>
       <button data-vista="editor">Editor</button>
     </nav>
     <div class="topo-dir">
@@ -103,6 +104,18 @@
     </div>
   </main>
 
+  <!-- ===================== EDIÇÃO IA (seus vídeos → edição com elementos) ===================== -->
+  <main id="vista-edicaoia" class="vista">
+    <div class="voz-topo">
+      <div>
+        <h1>Edição IA <small class="kie-selo">seus vídeos falando → editados</small></h1>
+        <p class="sub">Envie um ou mais vídeos seus falando, na ordem. O estúdio emenda, corta pausas e erros, cria animações e elementos no tempo do que você diz, mexe na sua imagem e monta tudo no Editor.</p>
+      </div>
+      <div class="voz-linha"><select id="eiaLista"></select><button class="btn primario" id="eiaNova">＋ Nova edição</button></div>
+    </div>
+    <div id="eiaCorpo" class="eia-corpo"></div>
+  </main>
+
   <!-- ===================== EDITOR ===================== -->
   <main id="vista-editor" class="vista editor">
     <div class="ed-topo">
@@ -161,6 +174,7 @@
               <img id="playerImg" alt="" hidden>
               <div id="palcoCartela" class="palco-cartela" hidden></div>
             </div>
+            <div id="palcoSobre" class="palco-sobre"></div>
             <div id="overlayTexto" class="overlay-texto"></div>
             <div id="overlayTextos" class="overlay-textos"></div>
             <div id="overlayLegenda" class="overlay-legenda"></div>
@@ -200,6 +214,7 @@
         <div class="tl-conteiner" id="tlConteiner">
           <div class="tl-linha"><div class="tl-rotulo"></div><div class="tl-regua" id="tlRegua"></div></div>
           <div class="tl-linha"><div class="tl-rotulo">🎬 Vídeo</div><div class="tl-pista tl-clipes" id="tlClipes"></div></div>
+          <div class="tl-linha"><div class="tl-rotulo">🎞 Elementos</div><div class="tl-pista tl-elementos" id="tlElementos"></div></div>
           <div class="tl-linha"><div class="tl-rotulo">🅣 Textos</div><div class="tl-pista tl-textos" id="tlTextos"></div></div>
           <div class="tl-linha"><div class="tl-rotulo">💬 Legendas</div><div class="tl-pista tl-legendas" id="tlLegendas"></div></div>
           <div class="tl-linha"><div class="tl-rotulo">🎵 Trilha</div><div class="tl-pista tl-musica" id="tlMusica"></div></div>
