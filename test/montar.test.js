@@ -30,6 +30,7 @@ test('cada trecho manter vira um clipe com a mídia base', () => {
   const ed = montarEdicao({ plano: { estilo, manter: [{ inicio: 0, fim: 4 }, { inicio: 4.5, fim: 8 }], movimentos: [], elementos: [] }, midiaBase: 'base.mp4', edicaoId: 'x', elementosProntos: [] });
   assert.deepEqual(ed.clipes.map((c) => [c.midia, c.inicio, c.fim]), [['base.mp4', 0, 4], ['base.mp4', 4.5, 8]]);
   assert.ok(ed.clipes.every((c) => !('movimento' in c)));
+  assert.deepEqual([ed.clipes[0].mudo, ed.clipes[0].fadeIn, ed.clipes[0].fadeOut, ed.clipes[0].zoom], [false, 0, 0, 'nenhum']);
 });
 
 test('movimento que atravessa um corte é dividido entre os clipes', () => {

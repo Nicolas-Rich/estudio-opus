@@ -18,6 +18,7 @@ import { gerarPromptDeIdeia, sugerirExtras } from './lib/assistente.js';
 import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 import { registrarRotasKie } from './lib/rotas-kie.js';
 import { registrarRotasGerador } from './lib/rotas-gerador.js';
+import { registrarRotasEdicaoIa } from './lib/rotas-edicao-ia.js';
 import { consertarHtml } from './lib/checar-html.js';
 import { resolverSobreposicoes } from './lib/sobreposicoes.js';
 
@@ -636,6 +637,7 @@ audioHooks = registrarRotasAudio(app, {
 
 registrarRotasKie(app, { DADOS, PASTAS, criarJob, msgJob, jobPublico, lerJson, gravarJson, registrarMidia });
 registrarRotasGerador(app, { DADOS, PASTAS, criarJob, msgJob, lerJson, gravarJson, registrarMidia });
+registrarRotasEdicaoIa(app, { DADOS, PASTAS, BASE, criarJob, msgJob, jobPublico, lerJson, gravarJson, registrarMidia });
 
 // ---- jobs
 app.get('/api/jobs', (_req, res) => {
