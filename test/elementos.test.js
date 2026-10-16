@@ -31,6 +31,12 @@ test('instrução de refazer entra no pedido', () => {
   assert.match(p, /bola vermelha/);
 });
 
+test('com furo, o pedido avisa onde a pessoa aparece', () => {
+  const furo = [{ t: 0, x: 43, y: 1075, w: 432, h: 768 }, { t: 1, x: 43, y: 1075, w: 432, h: 768 }];
+  const p = montarPedidoElemento({ el: { id: 'e4', inicio: 0, fim: 1, camada: 'tela-cheia', descricao: 'x' }, estilo, palavras: [], furo });
+  assert.match(p, /x 43, y 1075, 432×768/);
+});
+
 test('ehLimiteClaude reconhece o aviso de limite e ignora outros erros', () => {
   assert.equal(ehLimiteClaude(new Error("You've hit your weekly limit · resets Oct 17, 5pm")), true);
   assert.equal(ehLimiteClaude(new Error('Claude usage limit reached')), true);

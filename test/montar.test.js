@@ -1,6 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mapaTempo, estadoDaImagem, montarEdicao } from '../lib/edicao-ia/montar.js';
+import { mapaTempo, estadoDaImagem, montarEdicao, furoDaPessoa } from '../lib/edicao-ia/montar.js';
+
+test('tela cheia com a pessoa no canto ganha um furo onde ela está', () => {
+  const movs = [{ inicio: 5, fim: 7, tipo: 'canto', canto: 'inferior-esquerdo', escala: 0.4 }];
+  const furo = furoDaPessoa(movs, { inicio: 5, fim: 7, camada: 'tela-cheia' });
+  const meio = furo.find((q) => Math.abs(q.t - 1) < 0.04);
+  // escala 0,4 → 432×768 px, centro em (24 %, 76 %) → canto superior esquerdo em (43, 1075)
+  assert.deepEqual([meio.x, meio.y, meio.w, meio.h], [43, 1075, 432, 768]);
+  assert.equal(furo[0].t, 0);
+});
+
+test('sem a pessoa encolhida, ou fora da tela cheia, não há furo', () => {
+  assert.equal(furoDaPessoa([{ inicio: 0, fim: 9, tipo: 'zoom', escala: 1.3 }], { inicio: 1, fim: 2, camada: 'tela-cheia' }), null);
+  assert.equal(furoDaPessoa([{ inicio: 0, fim: 9, tipo: 'canto', escala: 0.4 }], { inicio: 1, fim: 2, camada: 'sobre' }), null);
+});
 
 const estilo = { paleta: ['#101010', '#7c5cff', '#ffffff'], fonte: 'Inter', clima: '' };
 
