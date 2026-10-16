@@ -7,8 +7,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "abrir": "node server.js --abrir",
-    "test": "node --test \"test/**/*.test.js\""
+    "abrir": "node server.js --abrir"
   },
   "dependencies": {
     "express": "^5.3.0",

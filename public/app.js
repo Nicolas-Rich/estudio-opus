@@ -77,7 +77,6 @@ function irPara(vista) {
   if (vista === 'voz') abrirEstudioVoz();
   if (vista === 'kie') abrirKie();
   if (vista === 'gerador') abrirGerador();
-  if (vista === 'edicaoia') abrirEdicaoIa();
   if (vista === 'editor') { carregarMidia().then(() => { ajustarPalco(); mostrarQuadro(); }); ajustarPalco(); }
   history.replaceState(null, '', `#${vista}${vista === 'projetos' && estado.projetoAberto ? '/' + estado.projetoAberto : ''}`);
 }
@@ -108,8 +107,7 @@ setInterval(async () => {
       const a = n('audio');
       const k = n('kie');
       const i = n('gerador');
-      const ei = n('edicao-ia');
-      el.textContent = [g && `${g} gerando`, a && `${a} no áudio`, k && `${k} no Kie.ai`, i && 'instalando o Opus Generator', ei && 'Edição IA trabalhando', r && `${r} renderizando`].filter(Boolean).join(' · ');
+      el.textContent = [g && `${g} gerando`, a && `${a} no áudio`, k && `${k} no Kie.ai`, i && 'instalando o Opus Generator', r && `${r} renderizando`].filter(Boolean).join(' · ');
     }
   } catch {}
 }, 3000);
@@ -1659,7 +1657,6 @@ const existe = (sel) => {
   const [t, u] = sel.split(':');
   if (t === 'c') return ed.clipes.some((c) => c.uid === u);
   if (t === 't') return ed.textos.some((x) => x.uid === u);
-  if (t === 'e') return (ed.sobreposicoes || []).some((x) => x.uid === u);
   if (t === 'a') return ed.audios.some((x) => x.uid === u);
   if (sel === 'musica') return !!ed.musica;
   if (sel === 'leg') return true;
@@ -1891,7 +1888,6 @@ function excluir() {
   const [tipo, u] = (selecionado || '').split(':');
   if (tipo === 'c') ed.clipes = ed.clipes.filter((c) => c.uid !== u);
   else if (tipo === 't') ed.textos = ed.textos.filter((x) => x.uid !== u);
-  else if (tipo === 'e') ed.sobreposicoes = ed.sobreposicoes.filter((x) => x.uid !== u);
   else if (tipo === 'a') ed.audios = ed.audios.filter((x) => x.uid !== u);
   else if (selecionado === 'musica') ed.musica = null;
   else if (selecionado === 'leg') { if (!confirm('Apagar todas as legendas?')) return; ed.legendas = legendasPadrao(); }
@@ -2017,10 +2013,10 @@ $('#edVolPrevia').oninput = (e) => {
 
 const FILTROS_CSS = {
   '': '', vivido: 'saturate(1.35) contrast(1.08)', pb: 'grayscale(1) contrast(1.12)', quente: 'sepia(.22) saturate(1.15)',
-  frio: 'hue-rotate(-12deg) saturate(.95) brightness(1.02)', vintage: 'sepia(.45) contrast(.9) brightness(1.05)', roxo: 'contrast(1.1) saturate(.88) brightness(.96) hue-rotate(8deg)',
+  frio: 'hue-rotate(-12deg) saturate(.95) brightness(1.02)', vintage: 'sepia(.45) contrast(.9) brightness(1.05)',
   contraste: 'contrast(1.25) saturate(1.1)', desbotado: 'contrast(.85) saturate(.75) brightness(1.03)', cinema: 'contrast(1.2) saturate(.9) hue-rotate(-6deg)',
 };
-const NOMES_FILTROS = { '': 'Nenhum', vivido: 'Vívido', pb: 'P&B', quente: 'Quente', frio: 'Frio', vintage: 'Vintage', contraste: 'Contraste', desbotado: 'Desbotado', cinema: 'Cinema', roxo: 'Roxo cinematográfico' };
+const NOMES_FILTROS = { '': 'Nenhum', vivido: 'Vívido', pb: 'P&B', quente: 'Quente', frio: 'Frio', vintage: 'Vintage', contraste: 'Contraste', desbotado: 'Desbotado', cinema: 'Cinema' };
 const cssFiltro = (f = {}) => [FILTROS_CSS[f.preset || ''], f.brilho ? `brightness(${(1 + +f.brilho).toFixed(2)})` : '',
   f.contraste && +f.contraste !== 1 ? `contrast(${f.contraste})` : '', f.saturacao != null && +f.saturacao !== 1 ? `saturate(${f.saturacao})` : ''].filter(Boolean).join(' ');
 
@@ -2034,14 +2030,12 @@ function mostrarQuadro() {
   $('#palcoVazio').hidden = !!ed.clipes.length;
   if (!hit) {
     player.hidden = true; playerImg.hidden = true; cartelaEl.hidden = true;
-    $('#palcoMidia').style.transform = '';
     mostrarTexto(null);
   } else {
     const { i, c, it } = hit;
     const local = Math.max(0, cab - it.inicio);
     const m = c.tipo === 'cartela' ? null : midiaPorNome(c.midia);
     $('#palcoMidia').style.filter = cssFiltro(c.filtro);
-    $('#palcoMidia').style.transform = transformMovimento(c.movimento, (+c.inicio || 0) + local * velC(c));
     // transição: mergulho de opacidade no trecho de sobreposição (o vídeo exportado usa a transição real)
     const xAnt = i > 0 ? L.itens[i - 1].x : 0;
     $('#palcoMidia').style.opacity = xAnt > 0 && local < xAnt ? (0.35 + 0.65 * (local / xAnt)).toFixed(2) : '1';
@@ -2078,78 +2072,9 @@ function mostrarQuadro() {
     mostrarTexto(c.texto?.trim() ? c : null);
   }
   desenharOverlays();
-  mostrarSobreposicoes();
   if (prev.tocando) sincronizarAudios();
   $('#tempoSeq').textContent = `${fmtT(cab)} / ${fmtT(total)}`;
   posicionarCabeca();
-}
-
-// movimento da imagem (Edição IA): quadros-chave { t, escala, x, y } interpolados → transform do palco
-function transformMovimento(mov, t) {
-  if (!mov?.length) return '';
-  let a = mov[0];
-  let b = mov.at(-1);
-  for (let k = 0; k < mov.length - 1; k++) if (t >= mov[k].t && t <= mov[k + 1].t) { a = mov[k]; b = mov[k + 1]; break; }
-  const p = b.t > a.t ? Math.min(1, Math.max(0, (t - a.t) / (b.t - a.t))) : t >= b.t ? 1 : 0;
-  const v = (k) => a[k] + (b[k] - a[k]) * p;
-  return `translate(${(v('x') - 50).toFixed(2)}%, ${(v('y') - 50).toFixed(2)}%) scale(${v('escala').toFixed(4)})`;
-}
-
-// elementos da Edição IA tocando por cima do vídeo (prévia em WebM com transparência)
-const videosSobre = new Map();
-function mostrarSobreposicoes() {
-  const caixa = $('#palcoSobre');
-  const ativos = new Set();
-  for (const x of ed.sobreposicoes || []) {
-    if (cab < x.inicio || cab >= x.fim) continue;
-    ativos.add(x.uid);
-    const src = `/edicao-ia/${x.edicaoId}/elementos/${encodeURIComponent(x.elId)}/preview.webm?v=${x.versao}`;
-    let v = videosSobre.get(x.uid);
-    if (!v) { v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; caixa.append(v); videosSobre.set(x.uid, v); }
-    if (!v.src.endsWith(src)) v.src = src;
-    Object.assign(v.style, { left: `${(x.x / 1080) * 100}%`, top: `${(x.y / 1920) * 100}%`, width: `${(x.w / 1080) * 100}%`, height: `${(x.h / 1920) * 100}%`, display: '' });
-    const local = cab - x.inicio;
-    if (prev.tocando) {
-      if (v.paused) v.play().catch(() => {});
-      if (Math.abs(v.currentTime - local) > 0.25) v.currentTime = local;
-    } else {
-      if (!v.paused) v.pause();
-      if (Math.abs(v.currentTime - local) > 0.04) v.currentTime = local;
-    }
-  }
-  for (const [uid, v] of videosSobre) {
-    if (ativos.has(uid)) continue;
-    if (!(ed.sobreposicoes || []).some((x) => x.uid === uid)) { v.remove(); videosSobre.delete(uid); continue; }
-    v.pause(); v.style.display = 'none';
-  }
-}
-
-function inspetorElemento(ins, x) {
-  const id = 'e:' + x.uid;
-  ins.innerHTML = `<h3>🎞 Elemento ${esc(x.elId)}</h3>
-    <p class="ajuda">Criado pela aba ✂ Edição IA. Arraste o bloco na timeline para mudar quando entra.</p>
-    <div class="voz-linha"><label>Início<input type="number" step="0.05" id="iSobIni" value="${x.inicio.toFixed(2)}"></label><label>Fim<input type="number" step="0.05" id="iSobFim" value="${x.fim.toFixed(2)}"></label></div>
-    <button class="btn" id="iSobRefazer">↻ Refazer com um pedido…</button>
-    <div id="iSobJob" class="voz-job" hidden><div class="barra-prog"><i></i></div><small class="mono"></small></div>
-    <button class="btn perigo" id="iSobApagar">🗑 Apagar elemento</button>`;
-  ligar('#iSobIni', 'onchange', (e) => { const d = x.fim - x.inicio; x.inicio = Math.max(0, +e.target.value || 0); x.fim = +(x.inicio + d).toFixed(2); mudou(); selecionar(id); });
-  ligar('#iSobFim', 'onchange', (e) => { x.fim = Math.max(x.inicio + 0.2, +e.target.value || x.fim); mudou(); });
-  ligar('#iSobApagar', 'onclick', () => { ed.sobreposicoes = ed.sobreposicoes.filter((y) => y !== x); salvarEdicao(); selecionar(null); });
-  ligar('#iSobRefazer', 'onclick', async () => {
-    const instrucao = prompt('O que mudar neste elemento?', '');
-    if (instrucao === null) return;
-    try {
-      const r = await api(`/api/edicao-ia/${x.edicaoId}/elementos/${encodeURIComponent(x.elId)}/refazer`, { corpo: { instrucao } });
-      if (!r.job) return toast('Pedido na fila da Edição IA.', 'ok');
-      $('#iSobJob').hidden = false;
-      const j = await acompanharJob(r.job.id, (jj) => { const c = $('#iSobJob'); if (c) { c.querySelector('i').style.width = `${Math.round((jj.progresso || 0) * 100)}%`; c.querySelector('small').textContent = jj.ultima || 'criando…'; } });
-      const d = await api(`/api/edicao-ia/${x.edicaoId}`);
-      const st = d.estado.elementos[x.elId];
-      if (st?.status === 'pronto') { x.versao = st.versao; salvarEdicao(); toast('Elemento refeito.', 'ok'); }
-      else toast('Não deu certo: ' + (st?.erro || j.erro || 'erro'), 'erro');
-      selecionar(id); mostrarQuadro();
-    } catch (e) { toast(e.message, 'erro'); }
-  });
 }
 
 function mostrarTexto(c) {
@@ -2178,7 +2103,6 @@ const ESTILOS_LEGENDA = {
   caixa: { nome: 'Caixa preta', destaque: '#ffd400', caixa: true },
   karaoke: { nome: 'Karaokê', destaque: '#00e5ff', karaoke: true },
   simples: { nome: 'Simples', destaque: null },
-  minimal: { nome: 'Minimal roxo', destaque: '#a78bfa', suave: true },
 };
 const FONTES_CSS = { negrito: '"Arial Black", Arial, sans-serif', impacto: 'Impact, sans-serif', serifa: 'Georgia, serif', normal: 'Arial, sans-serif', moderna: '"Segoe UI Black", "Segoe UI", sans-serif' };
 const TAMS_TEXTO = { p: 3.5, m: 5, g: 7, gg: 9.5 };
@@ -2206,10 +2130,10 @@ function desenharOverlays() {
   const palavras = item.palavras?.length ? item.palavras : [{ inicio: item.inicio, fim: item.fim, p: item.texto }];
   let ativa = -1;
   palavras.forEach((w, i) => { if (cab >= w.inicio) ativa = i; });
-  ov.style.top = `${topoPorPos(L.pos || 'base', L.y)}%`;
-  ov.style.transform = L.pos === 'topo' ? 'translate(-50%,0)' : L.pos === 'centro' || L.pos === 'livre' ? 'translate(-50%,-50%)' : 'translate(-50%,-100%)';
+  ov.style.top = `${topoPorPos(L.pos || 'base')}%`;
+  ov.style.transform = L.pos === 'topo' ? 'translate(-50%,0)' : L.pos === 'centro' ? 'translate(-50%,-50%)' : 'translate(-50%,-100%)';
   ov.style.fontSize = `${{ p: 3.8, m: 5, g: 6.4 }[L.tam] || 5}cqh`;
-  ov.className = `overlay-legenda ${est.caixa ? 'caixa' : ''} ${est.suave ? 'suave' : ''}`;
+  ov.className = `overlay-legenda ${est.caixa ? 'caixa' : ''}`;
   ov.innerHTML = palavras.map((w, i) => {
     const destaque = est.destaque && (est.karaoke ? i <= ativa : i === ativa);
     return `<span style="${destaque ? `color:${est.destaque};${est.pulo ? 'display:inline-block;transform:scale(1.12)' : ''}` : ''}">${esc(cx(w.p))}</span>`;
@@ -2304,7 +2228,7 @@ function desenharTimeline() {
   for (let s = 0; s * pxPorSeg < largura; s += passoR) marcas.push(`<i style="left:${s * pxPorSeg}px">${Number.isInteger(s) ? fmtT(s).replace('.0', '') : ''}</i>`);
   $('#tlRegua').innerHTML = marcas.join('');
   $('#tlRegua').style.width = `${largura}px`;
-  for (const id of ['#tlClipes', '#tlElementos', '#tlTextos', '#tlLegendas', '#tlMusica', '#tlAudios']) $(id).style.width = `${largura}px`;
+  for (const id of ['#tlClipes', '#tlTextos', '#tlLegendas', '#tlMusica', '#tlAudios']) $(id).style.width = `${largura}px`;
 
   // vídeo (posições absolutas: mostram a sobreposição das transições)
   $('#tlClipes').innerHTML = ed.clipes.length ? ed.clipes.map((c, i) => {
@@ -2320,11 +2244,6 @@ function desenharTimeline() {
       <em class="alca esq" data-alca="esq" draggable="false"></em><em class="alca dir" data-alca="dir" draggable="false"></em></div>
       ${ed.clipes[i + 1] ? `<button class="marca-trans ${trans ? 'ativa' : ''}" data-trans="${c.uid}" title="Transição" style="left:${(L.itens[i + 1].inicio + (trans ? it.x / 2 : 0)) * pxPorSeg - 9}px">${trans ? '⧓' : '+'}</button>` : ''}`;
   }).join('') : '<span class="tl-vazio">Arraste vídeos/fotos da Mídia para cá, ou use ＋ Adicionar.</span>';
-
-  // elementos (Edição IA)
-  const sob = ed.sobreposicoes || [];
-  $('#tlElementos').innerHTML = sob.length ? sob.map((x) => `<div class="bloco bloco-elemento ${selecionado === 'e:' + x.uid ? 'sel' : ''}" data-sob="${x.uid}" style="left:${x.inicio * pxPorSeg}px;width:${Math.max(18, (x.fim - x.inicio) * pxPorSeg)}px" title="${esc(x.elId)}">🎞 ${esc(x.elId)}<em class="alca dir" data-alca="dir"></em></div>`).join('')
-    : '<span class="tl-vazio">🎞 Elementos animados da aba ✂ Edição IA aparecem aqui.</span>';
 
   // textos
   $('#tlTextos').innerHTML = ed.textos.length ? ed.textos.map((t) => `<div class="bloco bloco-texto ${selecionado === 't:' + t.uid ? 'sel' : ''}" data-texto="${t.uid}" style="left:${t.inicio * pxPorSeg}px;width:${Math.max(18, (t.fim - t.inicio) * pxPorSeg)}px">🅣 ${esc(t.texto)}<em class="alca dir" data-alca="dir"></em></div>`).join('')
@@ -2386,7 +2305,6 @@ $('#tlClipes').addEventListener('click', (e) => {
   if (c && !e.target.closest('.alca')) selecionar('c:' + c.dataset.uid);
 });
 $('#tlTextos').addEventListener('click', (e) => { const b = e.target.closest('[data-texto]'); if (b) selecionar('t:' + b.dataset.texto); });
-$('#tlElementos').addEventListener('click', (e) => { const b = e.target.closest('[data-sob]'); if (b) selecionar('e:' + b.dataset.sob); });
 $('#tlLegendas').addEventListener('click', (e) => {
   const b = e.target.closest('[data-leg]');
   if (!b) return;
@@ -2401,7 +2319,7 @@ $('#tlAudios').addEventListener('click', (e) => { const b = e.target.closest('[d
 // arrastar com o mouse: mover textos/áudios e aparar clipes/textos/áudios pelas alças
 document.addEventListener('mousedown', (e) => {
   const alca = e.target.closest('.alca');
-  const bloco = e.target.closest('.bloco-texto, .bloco-audio, .bloco-elemento');
+  const bloco = e.target.closest('.bloco-texto, .bloco-audio');
   if (!alca && !bloco) return;
   e.preventDefault();
   e.stopPropagation();
@@ -2410,7 +2328,6 @@ document.addEventListener('mousedown', (e) => {
   let alvo; let tipo;
   if (el.classList.contains('clipe')) { alvo = ed.clipes.find((c) => c.uid === el.dataset.uid); tipo = 'clipe'; selecionado = 'c:' + alvo.uid; }
   else if (el.dataset.texto) { alvo = ed.textos.find((t) => t.uid === el.dataset.texto); tipo = 'texto'; selecionado = 't:' + alvo.uid; }
-  else if (el.dataset.sob) { alvo = ed.sobreposicoes.find((x) => x.uid === el.dataset.sob); tipo = 'texto'; selecionado = 'e:' + alvo.uid; }
   else { alvo = ed.audios.find((a) => a.uid === el.dataset.audio); tipo = 'audio'; selecionado = 'a:' + alvo.uid; }
   const orig = structuredClone(alvo);
   const lado = alca?.dataset.alca;
@@ -2529,7 +2446,6 @@ function selecionar(id) {
   const [tipo, u] = id.split(':');
   if (tipo === 'a') return inspetorAudio(ins, ed.audios.find((x) => x.uid === u));
   if (tipo === 't') return inspetorTexto(ins, ed.textos.find((x) => x.uid === u));
-  if (tipo === 'e') return inspetorElemento(ins, ed.sobreposicoes.find((x) => x.uid === u));
   return inspetorClipe(ins, ed.clipes.find((x) => x.uid === u));
 }
 const ligar = (sel, ev, fn) => { const el = $(sel); if (el) el[ev] = fn; };
@@ -2749,10 +2665,8 @@ function inspetorClipe(ins, c) {
       <label class="check"><input type="checkbox" id="iFundo" ${c.textoFundo ? 'checked' : ''}> caixa escura atrás</label>`;
   }
   ins.innerHTML = `<h3>${c.tipo === 'cartela' ? '🅰 Cartela' : '🎬 Clipe'} ${i + 1} de ${ed.clipes.length}</h3>
-    ${c.movimento?.length ? `<div class="insp-mov">🎥 Movimento da imagem (zoom/canto/meia tela) da Edição IA <button class="btn mini" id="iTirarMov">Remover movimento</button></div>` : ''}
     <div class="abas-insp">${abas.map(([k, v]) => `<button data-aba="${k}" class="${abaClipe === k ? 'ativa' : ''}">${v}</button>`).join('')}</div>
     ${corpo}`;
-  ligar('#iTirarMov', 'onclick', () => { delete c.movimento; mudou(); selecionar(id); });
   $$('.abas-insp button', ins).forEach((b) => b.onclick = () => { abaClipe = b.dataset.aba; selecionar(id); });
   const num = (v) => Math.max(0, +v || 0);
   // editar
@@ -2860,7 +2774,6 @@ async function carregarEdicao() {
   if (salvo && Array.isArray(salvo.clipes)) Object.assign(ed, salvo);
   if (!Array.isArray(ed.audios)) ed.audios = [];
   if (!Array.isArray(ed.textos)) ed.textos = [];
-  if (!Array.isArray(ed.sobreposicoes)) ed.sobreposicoes = [];
   ed.legendas = { ...legendasPadrao(), ...(ed.legendas || {}) };
   for (const c of ed.clipes) {
     c.velocidade ||= 1;
@@ -3625,272 +3538,10 @@ async function carregarVideosGerador() {
   });
 }
 
-// ===================================================================== EDIÇÃO IA
-// seus vídeos falando (na ordem) → emenda, cortes, plano do Claude (revisável) → elementos com transparência → Editor
-const eia = { lista: [], id: null, d: null, acompanhando: new Set() };
-const ROTULO_ETAPA = { enviado: 'Vídeos enviados', preparando: 'Preparando…', preparado: 'Preparado', planejando: 'Planejando…', planejado: 'Plano pronto — revise', gerando: 'Criando elementos…', pausado: 'Pausado', pronto: 'Elementos prontos', erro: 'Erro' };
-const ROTULO_STATUS = { pendente: 'aguardando', fila: 'na fila', gerando: 'criando…', renderizando: 'renderizando…', pronto: 'pronto', erro: 'erro' };
-const fmtS = (s) => (+s).toFixed(2);
-
-async function abrirEdicaoIa() {
-  eia.lista = await api('/api/edicao-ia').catch(() => []);
-  eia.estilos ||= await api('/api/edicao-ia/estilos').catch(() => []);
-  try { eia.id ||= localStorage.getItem('eiaId'); } catch {}
-  if (!eia.lista.some((e) => e.id === eia.id)) eia.id = eia.lista[0]?.id || null;
-  $('#eiaLista').innerHTML = eia.lista.length
-    ? eia.lista.map((e) => `<option value="${esc(e.id)}" ${e.id === eia.id ? 'selected' : ''}>${esc(e.nome)} · ${esc(ROTULO_ETAPA[e.etapa] || e.etapa)}</option>`).join('')
-    : '<option value="">Nenhuma edição ainda</option>';
-  $('#eiaLista').onchange = (ev) => { eia.id = ev.target.value; lembrarEia(); carregarEia(); };
-  $('#eiaNova').onclick = async () => {
-    const nome = prompt('Nome da edição:', 'Minha edição');
-    if (nome === null) return;
-    const e = await api('/api/edicao-ia', { corpo: { nome } });
-    eia.id = e.id; lembrarEia(); abrirEdicaoIa();
-  };
-  carregarEia();
-}
-const lembrarEia = () => { try { localStorage.setItem('eiaId', eia.id || ''); } catch {} };
-
-async function carregarEia() {
-  if (!eia.id) {
-    $('#eiaCorpo').innerHTML = '<section class="voz-col eia-vazio"><h3>Comece uma edição</h3><p class="ajuda">Clique em <b>＋ Nova edição</b> e envie seus vídeos falando.</p></section>';
-    return;
-  }
-  eia.d = await api(`/api/edicao-ia/${eia.id}`).catch((e) => { toast(e.message, 'erro'); return null; });
-  if (eia.d) desenharEia();
-}
-
-function desenharEia() {
-  const { estado: e, plano } = eia.d;
-  const trabalhando = ['preparando', 'planejando', 'gerando'].includes(e.etapa);
-  const els = plano?.elementos || [];
-  const algumGerado = Object.values(e.elementos || {}).some((x) => x.status !== 'pendente');
-  $('#eiaCorpo').innerHTML = `
-    <section class="voz-col">
-      <div class="voz-linha"><h3>1 · Seus vídeos <small>(arraste para ordenar)</small></h3><span class="espaco"></span><span class="ger-sit ${e.etapa === 'erro' ? '' : 'instalado'}">${esc(ROTULO_ETAPA[e.etapa] || e.etapa)}</span></div>
-      <div id="eiaVideos" class="eia-videos">${e.ordem.map((n, i) => `
-        <div class="eia-video" draggable="true" data-nome="${esc(n)}">
-          <span class="eia-num">${i + 1}</span>
-          <video src="/edicao-ia/${e.id}/videos/${encodeURIComponent(n)}#t=0.5" preload="metadata" muted></video>
-          <span class="eia-nome">${esc(n.replace(/^[a-z0-9]+-/, ''))}</span>
-          <button class="btn mini perigo" data-apagar="${esc(n)}" title="Remover">✕</button>
-        </div>`).join('')}
-        <label class="eia-add">＋ Adicionar vídeos<input type="file" id="eiaArquivos" accept="video/*" multiple hidden></label>
-      </div>
-      <label>Estilo da edição<select id="eiaEstilo">${(eia.estilos || []).map((s) => `<option value="${esc(s.id)}" ${s.id === (e.estiloEdicao || 'criador-tech') ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}</select>
-        <small class="ajuda">${esc((eia.estilos || []).find((s) => s.id === (e.estiloEdicao || 'criador-tech'))?.descricao || '')}</small></label>
-      <label>Observações <small>(opcional — a edição é construída a partir do que você FALA no vídeo; use só para pedidos extras, como "quando eu falar bola, coloca uma bola na minha mão")</small>
-        <textarea id="eiaBriefing" rows="2">${esc(e.briefing || '')}</textarea></label>
-      <label class="check"><input type="checkbox" id="eiaAuto" ${e.automatico ? 'checked' : ''}> Fazer tudo automático (pula a revisão do plano e monta direto no Editor)</label>
-      <div class="voz-linha"><button class="btn primario" id="eiaPreparar" ${!e.ordem.length || trabalhando ? 'disabled' : ''}>✦ Preparar e planejar</button>
-        <button class="btn mini perigo" id="eiaApagarEdicao">Apagar edição</button></div>
-      <div id="eiaJob" class="voz-job" hidden><div class="barra-prog"><i></i></div><small class="mono"></small></div>
-      ${e.erro ? `<p class="erro-txt">⚠ ${esc(e.erro)}</p>` : ''}
-    </section>
-    ${plano ? desenharPlanoEia(plano) : ''}
-    ${plano && (algumGerado || e.etapa === 'pausado') ? `
-    <section class="voz-col">
-      <div class="voz-linha"><h3>3 · Elementos</h3><span class="espaco"></span>
-        ${e.etapa === 'pausado' ? '<button class="btn" id="eiaContinuar">▶ Continuar</button>' : ''}
-        <button class="btn primario" id="eiaMontar" ${trabalhando ? 'disabled' : ''}>✔ Montar no Editor</button></div>
-      <div class="eia-elementos">${els.map((el) => {
-        const s = e.elementos[el.id] || { status: 'pendente' };
-        return `<div class="eia-el ${s.status}">
-          <div class="eia-prev">${s.status === 'pronto' ? `<video src="/edicao-ia/${e.id}/elementos/${encodeURIComponent(el.id)}/preview.webm?v=${s.versao}" autoplay loop muted playsinline></video>` : `<span>${esc(ROTULO_STATUS[s.status] || s.status)}</span>`}</div>
-          <b>${fmtS(el.inicio)}–${fmtS(el.fim)}s</b> <small>${esc(el.textoNaTela || el.descricao).slice(0, 80)}</small>
-          ${s.erro ? `<small class="erro-txt">${esc(s.erro).slice(0, 200)}</small>` : ''}
-          ${['pronto', 'erro'].includes(s.status) ? `<button class="btn mini" data-refazer="${esc(el.id)}">↻ ${s.status === 'erro' ? 'Tentar de novo' : 'Refazer…'}</button>` : ''}
-        </div>`;
-      }).join('')}</div>
-    </section>` : ''}`;
-  ligarEia();
-}
-
-function desenharPlanoEia(plano) {
-  const { estado: e, duracao, transcricao } = eia.d;
-  const D = duracao || 1;
-  const cortes = [];
-  let t = 0;
-  for (const m of plano.manter) { if (m.inicio > t + 0.01) cortes.push({ inicio: t, fim: m.inicio }); t = m.fim; }
-  if (D > t + 0.01) cortes.push({ inicio: t, fim: D });
-  const cortada = (f) => cortes.some((c) => f.inicio >= c.inicio - 0.05 && f.fim <= c.fim + 0.05);
-  const editavel = !['preparando', 'planejando', 'gerando'].includes(e.etapa);
-  return `
-    <section class="voz-col">
-      <div class="voz-linha"><h3>2 · Plano da edição</h3><span class="espaco"></span><small class="mono">${plano.elementos.length} elementos · ${plano.movimentos.length} movimentos · fica ${plano.manter.reduce((s, m) => s + m.fim - m.inicio, 0).toFixed(1)} de ${D.toFixed(1)}s</small></div>
-      <div class="eia-tl" title="Verde = fica · Listrado = cortado (clique para manter)">
-        ${plano.manter.map((m) => `<i class="fica" style="left:${(m.inicio / D) * 100}%;width:${((m.fim - m.inicio) / D) * 100}%"></i>`).join('')}
-        ${cortes.map((c, i) => `<i class="corte" data-corte="${i}" style="left:${(c.inicio / D) * 100}%;width:${((c.fim - c.inicio) / D) * 100}%"></i>`).join('')}
-        ${plano.elementos.map((el) => `<b class="marca" style="left:${(el.inicio / D) * 100}%" title="${esc(el.textoNaTela || el.descricao)}"></b>`).join('')}
-      </div>
-      <details class="eia-fala"><summary>O que você fala (frases riscadas serão cortadas)</summary>
-        ${(transcricao?.frases || []).map((f) => `<p class="${cortada(f) ? 'cortada' : ''}"><span class="mono">${fmtS(f.inicio)}</span> ${esc(f.texto)}</p>`).join('')}</details>
-      ${e.avisos?.length ? `<p class="ajuda">ℹ ${e.avisos.map(esc).join(' · ')}</p>` : ''}
-      <div class="eia-plano">${plano.elementos.map((el, i) => `
-        <div class="eia-card" data-i="${i}">
-          <div class="voz-linha"><input type="number" step="0.05" data-k="inicio" value="${fmtS(el.inicio)}"> – <input type="number" step="0.05" data-k="fim" value="${fmtS(el.fim)}">
-            <select data-k="camada"><option value="sobre" ${el.camada === 'sobre' ? 'selected' : ''}>por cima</option><option value="tela-cheia" ${el.camada === 'tela-cheia' ? 'selected' : ''}>tela cheia</option></select>
-            <span class="espaco"></span>${editavel ? `<button class="btn mini perigo" data-tirar="${i}" title="Apagar elemento">✕</button>` : ''}</div>
-          <input data-k="textoNaTela" placeholder="Texto na tela" value="${esc(el.textoNaTela || '')}">
-          <textarea data-k="descricao" rows="2">${esc(el.descricao || '')}</textarea>
-        </div>`).join('')}</div>
-      ${plano.movimentos.length ? `<p class="ajuda">🎥 Movimentos da sua imagem: ${plano.movimentos.map((m, i) => `<span class="eia-mov">${esc(m.tipo)} ${fmtS(m.inicio)}–${fmtS(m.fim)}s ${editavel ? `<a href="#" data-tirar-mov="${i}" title="Remover">✕</a>` : ''}</span>`).join(' ')}</p>` : ''}
-      ${editavel ? `<div class="voz-linha"><button class="btn" id="eiaSalvarPlano">Salvar alterações</button><span class="espaco"></span>
-        <input id="eiaInstrucao" placeholder="Pedido para refazer o plano (ex.: mais 3D, menos texto)"><button class="btn" id="eiaRefazerPlano">↻ Refazer o plano</button></div>
-      <button class="btn primario grande" id="eiaGerar">🎬 Gerar elementos</button>` : ''}
-    </section>`;
-}
-
-function lerPlanoDaTela() {
-  const plano = structuredClone(eia.d.plano);
-  $$('.eia-card').forEach((c) => {
-    const el = plano.elementos[+c.dataset.i];
-    c.querySelectorAll('[data-k]').forEach((f) => { el[f.dataset.k] = ['inicio', 'fim'].includes(f.dataset.k) ? +f.value : f.value; });
-  });
-  return plano;
-}
-
-async function salvarPlanoEia(plano) {
-  const r = await api(`/api/edicao-ia/${eia.id}/plano`, { method: 'PUT', corpo: plano });
-  if (r.avisos?.length) toast(r.avisos.join(' · '));
-  await carregarEia();
-}
-
-function acompanharEia(job) {
-  if (eia.acompanhando.has(job.id)) return;
-  eia.acompanhando.add(job.id);
-  const atualizar = (j) => {
-    const caixa = $('#eiaJob');
-    if (!caixa) return;
-    caixa.hidden = false;
-    caixa.querySelector('i').style.width = `${Math.round((j.progresso || 0) * 100)}%`;
-    caixa.querySelector('small').textContent = j.ultima || 'trabalhando…';
-  };
-  let ultimo = 0;
-  const montadoAntes = eia.d?.estado?.montado;
-  acompanharJob(job.id, (j) => { atualizar(j); if (Date.now() - ultimo > 4000 && estado.vista === 'edicaoia') { ultimo = Date.now(); api(`/api/edicao-ia/${eia.id}`).then((d) => { eia.d = d; desenharEia(); atualizar(j); }).catch(() => {}); } })
-    .then((j) => {
-      eia.acompanhando.delete(job.id);
-      if (j.status === 'ok') toast('Edição IA: ' + (j.ultima || 'pronto'), 'ok');
-      else toast('Edição IA: ' + (j.erro || 'falhou'), 'erro');
-      // modo automático montou no servidor: o Editor aberto precisa recarregar para não sobrescrever
-      api(`/api/edicao-ia/${eia.id}`).then((d) => { if (d.estado.montado && d.estado.montado !== montadoAntes) { carregarMidia(); carregarEdicao(); } }).catch(() => {});
-      if (estado.vista === 'edicaoia') abrirEdicaoIa();
-    });
-}
-
-async function enviarVideosEia(arquivos) {
-  for (const [i, f] of [...arquivos].entries()) {
-    toast(`Enviando ${i + 1} de ${arquivos.length}: ${f.name}…`);
-    try {
-      const r = await fetch(`/api/edicao-ia/${eia.id}/videos?nome=${encodeURIComponent(f.name)}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: f });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.erro || `Erro ${r.status}`);
-    } catch (e) { toast(`${f.name}: ${e.message}`, 'erro'); }
-  }
-  await carregarEia();
-}
-
-function ligarEia() {
-  const e = eia.d.estado;
-  const salvarCampos = () => api(`/api/edicao-ia/${eia.id}`, { method: 'PUT', corpo: { briefing: $('#eiaBriefing').value, automatico: $('#eiaAuto').checked, estiloEdicao: $('#eiaEstilo').value } }).catch((x) => toast(x.message, 'erro'));
-  $('#eiaEstilo').onchange = async () => { await salvarCampos(); carregarEia(); };
-  $('#eiaBriefing').onchange = salvarCampos;
-  $('#eiaAuto').onchange = salvarCampos;
-  $('#eiaArquivos').onchange = (ev) => enviarVideosEia(ev.target.files);
-  $$('#eiaVideos [data-apagar]').forEach((b) => b.onclick = async () => {
-    await api(`/api/edicao-ia/${eia.id}/videos/${encodeURIComponent(b.dataset.apagar)}`, { method: 'DELETE' });
-    carregarEia();
-  });
-  // arrastar para reordenar
-  let arrastado = null;
-  $$('#eiaVideos .eia-video').forEach((v) => {
-    v.ondragstart = () => { arrastado = v; v.classList.add('arrastando'); };
-    v.ondragend = () => v.classList.remove('arrastando');
-    v.ondragover = (ev) => { ev.preventDefault(); };
-    v.ondrop = async (ev) => {
-      ev.preventDefault();
-      if (!arrastado || arrastado === v) return;
-      const ordem = [...e.ordem];
-      const de = ordem.indexOf(arrastado.dataset.nome);
-      ordem.splice(de, 1);
-      ordem.splice(ordem.indexOf(v.dataset.nome) + (de <= e.ordem.indexOf(v.dataset.nome) ? 1 : 0), 0, arrastado.dataset.nome);
-      await api(`/api/edicao-ia/${eia.id}`, { method: 'PUT', corpo: { ordem } }).catch((x) => toast(x.message, 'erro'));
-      carregarEia();
-    };
-  });
-  $('#eiaPreparar').onclick = async () => {
-    await salvarCampos();
-    const { job } = await api(`/api/edicao-ia/${eia.id}/preparar`, { method: 'POST' }).catch((x) => { toast(x.message, 'erro'); return {}; });
-    if (job) { acompanharEia(job); carregarEia(); }
-  };
-  $('#eiaApagarEdicao').onclick = async () => {
-    if (!confirm(`Apagar a edição "${e.nome}" e os vídeos enviados para ela?`)) return;
-    await api(`/api/edicao-ia/${eia.id}`, { method: 'DELETE' });
-    eia.id = null; lembrarEia(); abrirEdicaoIa();
-  };
-  if (!eia.d.plano) return;
-
-  // revisão do plano
-  $$('.eia-tl [data-corte]').forEach((c) => c.onclick = () => {
-    const plano = lerPlanoDaTela();
-    const D = eia.d.duracao;
-    const cortes = [];
-    let t = 0;
-    for (const m of plano.manter) { if (m.inicio > t + 0.01) cortes.push({ inicio: t, fim: m.inicio }); t = m.fim; }
-    if (D > t + 0.01) cortes.push({ inicio: t, fim: D });
-    plano.manter.push(cortes[+c.dataset.corte]);
-    salvarPlanoEia(plano).catch((x) => toast(x.message, 'erro'));
-  });
-  $$('[data-tirar]').forEach((b) => b.onclick = () => {
-    const plano = lerPlanoDaTela();
-    plano.elementos.splice(+b.dataset.tirar, 1);
-    salvarPlanoEia(plano).catch((x) => toast(x.message, 'erro'));
-  });
-  $$('[data-tirar-mov]').forEach((a) => a.onclick = (ev) => {
-    ev.preventDefault();
-    const plano = lerPlanoDaTela();
-    plano.movimentos.splice(+a.dataset.tirarMov, 1);
-    salvarPlanoEia(plano).catch((x) => toast(x.message, 'erro'));
-  });
-  if ($('#eiaSalvarPlano')) $('#eiaSalvarPlano').onclick = () => salvarPlanoEia(lerPlanoDaTela()).then(() => toast('Plano salvo.', 'ok')).catch((x) => toast(x.message, 'erro'));
-  if ($('#eiaRefazerPlano')) $('#eiaRefazerPlano').onclick = async () => {
-    const { job } = await api(`/api/edicao-ia/${eia.id}/planejar`, { corpo: { instrucao: $('#eiaInstrucao').value } }).catch((x) => { toast(x.message, 'erro'); return {}; });
-    if (job) { acompanharEia(job); carregarEia(); }
-  };
-  if ($('#eiaGerar')) $('#eiaGerar').onclick = async () => {
-    try { await salvarPlanoEia(lerPlanoDaTela()); } catch (x) { return toast(x.message, 'erro'); }
-    const { job } = await api(`/api/edicao-ia/${eia.id}/gerar`, { method: 'POST' }).catch((x) => { toast(x.message, 'erro'); return {}; });
-    if (job) { acompanharEia(job); carregarEia(); }
-  };
-  if ($('#eiaContinuar')) $('#eiaContinuar').onclick = async () => {
-    const { job } = await api(`/api/edicao-ia/${eia.id}/continuar`, { method: 'POST' }).catch((x) => { toast(x.message, 'erro'); return {}; });
-    if (job) { acompanharEia(job); carregarEia(); }
-  };
-  $$('[data-refazer]').forEach((b) => b.onclick = async () => {
-    const st = e.elementos[b.dataset.refazer];
-    const instrucao = st.status === 'erro' ? '' : prompt('O que mudar neste elemento?', '');
-    if (instrucao === null) return;
-    const r = await api(`/api/edicao-ia/${eia.id}/elementos/${encodeURIComponent(b.dataset.refazer)}/refazer`, { corpo: { instrucao } }).catch((x) => { toast(x.message, 'erro'); return null; });
-    if (r?.job) acompanharEia(r.job);
-    carregarEia();
-  });
-  if ($('#eiaMontar')) $('#eiaMontar').onclick = async () => {
-    if (!confirm('Montar no Editor? A edição aberta no Editor agora será guardada numa cópia (edicao-anterior-…json) e substituída por esta.')) return;
-    try {
-      const r = await api(`/api/edicao-ia/${eia.id}/montar`, { method: 'POST' });
-      await carregarMidia();
-      await carregarEdicao();
-      toast(`Montado no Editor: ${r.elementos} de ${r.total} elementos.`, 'ok');
-      irPara('editor');
-    } catch (x) { toast(x.message, 'erro'); }
-  };
-}
-
 function seguirHash() {
   const [vista, id] = location.hash.slice(1).split('/');
   if (vista === 'projetos' && id) abrirProjeto(id);
-  else if (['modelos', 'projetos', 'voz', 'kie', 'gerador', 'edicaoia', 'editor'].includes(vista)) irPara(vista);
+  else if (['modelos', 'projetos', 'voz', 'kie', 'gerador', 'editor'].includes(vista)) irPara(vista);
 }
 window.addEventListener('hashchange', seguirHash);
 

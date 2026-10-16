@@ -18,9 +18,7 @@ import { gerarPromptDeIdeia, sugerirExtras } from './lib/assistente.js';
 import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 import { registrarRotasKie } from './lib/rotas-kie.js';
 import { registrarRotasGerador } from './lib/rotas-gerador.js';
-import { registrarRotasEdicaoIa } from './lib/rotas-edicao-ia.js';
 import { consertarHtml } from './lib/checar-html.js';
-import { resolverSobreposicoes } from './lib/sobreposicoes.js';
 
 const RAIZ = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(RAIZ, 'awesome-opus5-5-videos');
@@ -637,7 +635,6 @@ audioHooks = registrarRotasAudio(app, {
 
 registrarRotasKie(app, { DADOS, PASTAS, criarJob, msgJob, jobPublico, lerJson, gravarJson, registrarMidia });
 registrarRotasGerador(app, { DADOS, PASTAS, criarJob, msgJob, lerJson, gravarJson, registrarMidia });
-registrarRotasEdicaoIa(app, { DADOS, PASTAS, BASE, criarJob, msgJob, jobPublico, lerJson, gravarJson, registrarMidia });
 
 // ---- jobs
 app.get('/api/jobs', (_req, res) => {
@@ -697,8 +694,7 @@ function resolverEdicao(tl) {
     const m = porNome.get(x.midia);
     return m ? { ...x, arquivo: path.join(PASTAS.midia, m.nome) } : null;
   }).filter(Boolean);
-  const sobreposicoes = resolverSobreposicoes(tl.sobreposicoes, path.join(DADOS, 'edicoes-ia'));
-  return { edicao: { ...tl, clipes, musica, audios, sobreposicoes } };
+  return { edicao: { ...tl, clipes, musica, audios } };
 }
 
 app.post('/api/exportar', async (req, res) => {

@@ -82,9 +82,6 @@ Vídeos realistas (pessoas falando, UGC, produto em cena) com Veo 3.1, Kling 3.0
 ### ⚡ Opus Generator (grátis, no seu PC)
 Vídeo com fala em português, som e música numa geração só, com o modelo aberto **MiniMax H3** rodando na sua placa de vídeo (via WanGP). A aba confere se a máquina aguenta (mínimo: placa de 6 GB, 24 GB de RAM, 35 GB livres), instala com o botão **⬇ Instalar** (Windows), abre o gerador e traz os vídeos da pasta `outputs` para a Mídia do Editor.
 
-### ✂ Edição IA (seus vídeos falando → editados)
-Envie um ou mais vídeos seus falando (viram um só, na ordem da lista) e escolha o estilo (padrão: **Criador tech · roxo cinematográfico**). O estúdio emenda, transcreve, corta pausas e erros, e o Claude constrói a edição a partir do que você fala: títulos, cards, telas de interface com o seu vídeo dentro e movimentos da sua imagem no tempo da fala. Revise o plano, gere os elementos (fundo transparente) e **Monte no Editor**: os elementos ficam na faixa **🎞 Elementos**, editáveis um a um.
-
 ### 3. Editor (estilo CapCut)
 **Timeline**: régua de tempo e **cabeçote** (a linha laranja). Clique ou arraste na régua para navegar. As faixas são:
 🎬 Vídeo · 🅣 Textos · 💬 Legendas · 🎵 Trilha · 🎙 Áudios.
