@@ -295,6 +295,29 @@ Use esta aba para cenas **realistas** que a animação em código não faz: pess
 
 > 💡 Teste o prompt no modelo mais barato e só gere no melhor quando estiver bom. Se a pessoa do vídeo for gerada por IA, identifique o anúncio como conteúdo de IA (regras do CONAR e do Meta Ads).
 
+### 5.9 Opus Generator (aba ⚡ Opus Generator, grátis no seu PC)
+Gera vídeo com **fala em português, som ambiente e música numa geração só**, usando o modelo aberto **MiniMax H3** dentro do **WanGP**, rodando na sua placa de vídeo. Não há custo por vídeo: o custo é a máquina.
+
+**Pré-requisitos**
+
+| | Mínimo | Recomendado |
+|---|---|---|
+| Placa de vídeo | NVIDIA GTX 10xx a RTX 50xx, ou AMD RX 6000+ | NVIDIA RTX 30xx ou mais nova |
+| Memória da placa (VRAM) | 6 GB | 12–24 GB |
+| Memória RAM | 24 GB (perfil 5, mais lento) | 32–64 GB |
+| Espaço livre | 35 GB | 50 GB ou mais, em SSD |
+| Sistema | Windows 10/11 (botão Instalar) ou Linux (terminal) | — |
+
+1. Abra a aba. O quadro **Sua máquina** confere placa, memória, disco e Git e diz se dá para rodar (✅ ok, ⚠️ com ressalvas, ❌ não roda).
+2. Escolha a **pasta de instalação** num disco com espaço e clique em **⬇ Instalar**. O estúdio baixa o WanGP do GitHub oficial e abre o instalador dele numa janela preta.
+3. Na janela, digite **1** (Automatic Install). Ele instala Python, PyTorch e o resto (10–20 min).
+4. Volte e clique em **▶ Iniciar o gerador**. A interface abre no navegador em `http://127.0.0.1:7860`.
+5. Escolha **MiniMax H3 FL2VA Pruned 20B**, ligue **Advanced Mode** → aba **Misc** (Text Encoder **Qwen3-VL GGUF Q2_K**, VAE **FP8**) e o perfil de memória que a aba indicar para a sua RAM.
+6. Primeiro teste: **832x480, 124 quadros, 20 passos**. Copie o prompt de exemplo da aba, troque a fala e clique em **Generate**. No primeiro vídeo ele baixa o modelo (~33–42 GB).
+7. Em **Vídeos gerados**, clique em **➜ Editor** para levar o vídeo à Mídia.
+
+> 💡 Sem placa compatível? Teste no Space oficial da MiniMax no Hugging Face (grátis, 2–5 min de GPU por dia; use 544x960 *fast*, 5 s, 6 passos, Upsample desligado). **Licença:** uso comercial sem royalties no Brasil, mas o anúncio precisa de aviso visível de que foi gerado por IA, e não pode usar rosto ou voz de outra pessoa sem consentimento.
+
 ---
 
 ## Módulo 6 — Renderizar o MP4

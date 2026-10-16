@@ -76,6 +76,7 @@ function irPara(vista) {
   if (vista === 'projetos' && !estado.projetoAberto) carregarProjetos();
   if (vista === 'voz') abrirEstudioVoz();
   if (vista === 'kie') abrirKie();
+  if (vista === 'gerador') abrirGerador();
   if (vista === 'editor') { carregarMidia().then(() => { ajustarPalco(); mostrarQuadro(); }); ajustarPalco(); }
   history.replaceState(null, '', `#${vista}${vista === 'projetos' && estado.projetoAberto ? '/' + estado.projetoAberto : ''}`);
 }
@@ -105,7 +106,8 @@ setInterval(async () => {
       const r = n('render') + n('exportacao');
       const a = n('audio');
       const k = n('kie');
-      el.textContent = [g && `${g} gerando`, a && `${a} no áudio`, k && `${k} no Kie.ai`, r && `${r} renderizando`].filter(Boolean).join(' · ');
+      const i = n('gerador');
+      el.textContent = [g && `${g} gerando`, a && `${a} no áudio`, k && `${k} no Kie.ai`, i && 'instalando o Opus Generator', r && `${r} renderizando`].filter(Boolean).join(' · ');
     }
   } catch {}
 }, 3000);
@@ -3369,10 +3371,177 @@ function acompanharKie(id) {
   });
 }
 
+// ===================================================================== OPUS GENERATOR (WanGP / MiniMax H3 local)
+// confere a máquina, instala o WanGP (GitHub oficial + instalador dele) e traz os vídeos gerados para a Mídia
+const gz = { info: null, videos: [] };
+const ICONE_NIVEL = { ok: '✅', aviso: '⚠️', falha: '❌' };
+const PROMPT_GERADOR = `integrated_multimodal_description: [Shot 1] Live-action, photorealistic, authentic UGC smartphone selfie video, vertical framing, natural skin texture, sharp focus on her face and mouth. A Brazilian woman in her late twenties with long wavy dark hair, wearing a casual t-shirt, sits on a sofa in a cozy living room lit by soft natural window light. She holds the phone at arm's length, the camera has subtle natural handheld shake. Looking into the camera like she is telling a close friend a secret, with a warm, casual Brazilian voice and a natural conversational rhythm with small pauses (S1), she says: <d>[Portuguese] Gente... vocês precisam conhecer isso. Sério!</d> At the end she smiles and gives a small laugh.
+overall_soundscape: Quiet living room room tone continues underneath, with faint distant street ambience through an open window.
+non_diegetic_music: None.`;
+
+async function abrirGerador() {
+  $('#gerMaquina').innerHTML = '<h3>Sua máquina</h3><p class="ajuda">Verificando placa de vídeo, memória e disco…</p>';
+  try { gz.info = await api('/api/gerador/maquina'); } catch (e) { $('#gerMaquina').innerHTML = `<h3>Sua máquina</h3><p class="ajuda">${esc(e.message)}</p>`; return; }
+  desenharGerador();
+  carregarVideosGerador();
+  if (gz.info.instalando) acompanharInstalacao(gz.info.instalando);
+}
+
+function desenharGerador() {
+  const g = gz.info;
+  const R = g.requisitos;
+  const ram = g.maquina.ram;
+  const perfil = ram >= R.ramBoa ? '4 (padrão)' : '5 (Fail safe)';
+
+  $('#gerMaquina').innerHTML = `
+    <div class="voz-linha"><h3>Sua máquina</h3><span class="espaco"></span><button class="btn mini" id="gerReverificar">⟳ Verificar de novo</button></div>
+    <div class="ger-veredito n-${g.veredito.nivel}">${ICONE_NIVEL[g.veredito.nivel]} ${esc(g.veredito.texto)}</div>
+    <ul class="ger-itens">${g.itens.map((i) => `
+      <li class="n-${i.nivel}"><span class="ger-ic">${ICONE_NIVEL[i.nivel]}</span>
+        <div><b>${esc(i.nome)}</b> <span class="mono">${esc(i.valor)}</span><small>${esc(i.detalhe)}</small></div></li>`).join('')}
+    </ul>
+    <p class="ajuda">Sem placa compatível? Teste online no <a href="https://huggingface.co/spaces/MiniMaxAI/MiniMax-H3-Turbo-Lora" target="_blank" rel="noopener">Space oficial da MiniMax</a> (grátis, 2–5 min de GPU por dia) ou no <a href="https://hailuoai.video/tools/minimax-h3" target="_blank" rel="noopener">Hailuo AI</a> (pago por segundo).</p>`;
+
+  $('#gerRequisitos').innerHTML = `
+    <h3>Pré-requisitos</h3>
+    <table class="ger-tabela">
+      <thead><tr><th></th><th>Mínimo</th><th>Recomendado</th></tr></thead>
+      <tbody>
+        <tr><td>Placa de vídeo</td><td>NVIDIA GTX 10xx a RTX 50xx, ou AMD RX 6000+ (RDNA 2)</td><td>NVIDIA RTX 30xx ou mais nova</td></tr>
+        <tr><td>Memória da placa (VRAM)</td><td>${R.vramMin} GB (clipe de 5 s em 832x480)</td><td>${R.vramBoa}–24 GB</td></tr>
+        <tr><td>Memória RAM</td><td>${R.ramMin} GB (perfil 5, mais lento)</td><td>${R.ramBoa}–64 GB</td></tr>
+        <tr><td>Espaço livre</td><td>${R.discoMin} GB</td><td>${R.discoBom} GB ou mais, em SSD</td></tr>
+        <tr><td>Sistema</td><td colspan="2">Windows 10/11 (botão Instalar) ou Linux (terminal). Mac não roda.</td></tr>
+        <tr><td>Programas</td><td colspan="2">Git. O instalador oferece instalar o Python 3.11 se faltar.</td></tr>
+        <tr><td>Internet</td><td colspan="2">~3 GB do programa na instalação + ~33–42 GB do modelo no primeiro vídeo.</td></tr>
+      </tbody>
+    </table>
+    <p class="ajuda">A placa e a RAM trabalham juntas: o que não cabe na placa fica na RAM. Placa pequena pede mais RAM. Numa RTX 3060 com 16 GB de RAM, um clipe de 5 s levou ~25 min.</p>`;
+
+  const sit = g.noAr ? 'noar' : g.situacao;
+  const rotuloSit = { ausente: 'Não instalado', baixado: 'Baixado, falta rodar o instalador', instalado: 'Instalado', noar: 'Rodando' }[sit];
+  const botaoPrincipal = {
+    ausente: '<button class="btn primario grande" id="gerInstalarBtn">⬇ Instalar</button>',
+    baixado: '<button class="btn primario grande" id="gerInstalarBtn">⬇ Continuar instalação</button>',
+    instalado: '<button class="btn primario grande" id="gerIniciar">▶ Iniciar o gerador</button>',
+    noar: `<a class="btn primario grande" href="${esc(g.url)}" target="_blank" rel="noopener">↗ Abrir o gerador</a>`,
+  }[sit];
+  const windows = g.maquina.so === 'win32';
+  $('#gerInstalar').innerHTML = `
+    <div class="voz-linha"><h3>Instalar</h3><span class="espaco"></span><span class="ger-sit ${sit}">${rotuloSit}</span></div>
+    <label>Pasta de instalação <small>(precisa de ~${R.discoBom} GB livres nesse disco)</small>
+      <div class="voz-linha"><input id="gerPasta" value="${esc(g.pasta)}" spellcheck="false"><button class="btn" id="gerSalvarPasta">Usar esta pasta</button></div></label>
+    ${windows ? `<div class="voz-linha">${botaoPrincipal}${g.situacao !== 'ausente' ? '<button class="btn" id="gerAbrirPasta">📁 Abrir pasta</button>' : ''}</div>`
+    : `<p class="ajuda">No ${g.maquina.so === 'linux' ? 'Linux' : 'seu sistema'}, instale pelo terminal:</p>
+       <pre class="ger-codigo">git clone ${'https://github.com/deepbeepmeep/Wan2GP.git'}\ncd Wan2GP\nbash scripts/install.sh\nbash scripts/run.sh</pre>`}
+    <div id="gerProgresso" hidden><div class="ger-barra"><i></i></div><p class="ajuda mono" id="gerMsg"></p></div>
+    <ol class="ger-passos">
+      <li><b>Instalar</b> baixa o WanGP do GitHub oficial (deepbeepmeep/Wan2GP) para a pasta acima.</li>
+      <li>Abre o instalador oficial numa janela preta. Digite <b>1</b> (Automatic Install) e Enter. Ele instala Python, PyTorch e o resto (10–20 min).</li>
+      <li>Quando a janela terminar, volte aqui e clique em <b>Iniciar o gerador</b>. A interface abre em ${esc(g.url)}.</li>
+      <li>No primeiro vídeo o WanGP baixa o modelo (~33–42 GB). Só dessa vez.</li>
+    </ol>
+    <details class="ger-alt"><summary>Prefere instalar pelo Pinokio?</summary>
+      <ol class="ger-passos">
+        <li>Baixe e instale o Pinokio: <a href="https://desktop.pinokio.co" target="_blank" rel="noopener">desktop.pinokio.co</a></li>
+        <li>Abra o script do WanGP no Pinokio e clique em Install: <a href="https://pinokio.co/apps/github-com-6morpheus6-wan2gp" target="_blank" rel="noopener">Wan2GP do 6Morpheus6</a></li>
+        <li>Clique em Start e abra pelo botão <b>Open Web UI</b>. Pelo Pinokio a porta muda a cada início, então use o botão dele.</li>
+      </ol>
+    </details>`;
+
+  $('#gerGuia').innerHTML = `
+    <h3>Primeiro vídeo</h3>
+    <ol class="ger-passos">
+      <li>No seletor de modelos, escolha <b>MiniMax H3 FL2VA Pruned 20B</b> (o mais leve).</li>
+      <li>Marque <b>Advanced Mode</b> → aba <b>Misc</b>: Text Encoder <b>Qwen3-VL GGUF Q2_K</b> e VAE <b>FP8 Mixed Precision</b>.</li>
+      <li>Em <b>Override Memory Profile</b>, use o perfil <b>${perfil}</b> (sua máquina tem ${ram} GB de RAM).</li>
+      <li>Primeiro teste pequeno: <b>832x480</b>, <b>124 quadros</b> (~5 s) e <b>20 passos</b>.</li>
+      <li>Cole o prompt abaixo, troque a fala pelo seu texto e clique em <b>Generate</b>. Depois, traga o vídeo para o Editor no quadro "Vídeos gerados".</li>
+    </ol>
+    <label>Prompt de exemplo (UGC com fala em português)
+      <textarea id="gerPrompt" rows="9" class="mono" readonly>${esc(PROMPT_GERADOR)}</textarea></label>
+    <div class="voz-linha"><button class="btn" id="gerCopiar">⧉ Copiar prompt</button></div>
+    <p class="ajuda">A fala vai dentro de <code>&lt;d&gt;[Portuguese] …&lt;/d&gt;</code>, curta (~2,5 palavras por segundo). Para narração em off, escreva <i>says in an off-screen voiceover</i> e, logo depois da fala, <i>while her lips remain completely closed</i>.</p>
+    <div class="ger-licenca">⚖ <b>Licença do MiniMax H3:</b> uso comercial sem royalties no Brasil (até US$ 20 milhões de receita por ano). Anúncio precisa de <b>aviso visível de que o vídeo foi gerado por IA</b>. Não use rosto ou voz de outra pessoa sem consentimento. Nos EUA, União Europeia, Reino Unido e Coreia do Sul a licença é paga.</div>`;
+
+  $('#gerReverificar').onclick = abrirGerador;
+  $('#gerSalvarPasta').onclick = async () => {
+    try {
+      const r = await api('/api/gerador/pasta', { method: 'PUT', corpo: { pasta: $('#gerPasta').value } });
+      toast(`Pasta definida. Livre nesse disco: ${r.disco ?? '?'} GB.`, 'ok');
+      abrirGerador();
+    } catch (e) { toast(e.message, 'erro'); }
+  };
+  $('#gerCopiar').onclick = async () => {
+    try { await navigator.clipboard.writeText(PROMPT_GERADOR); toast('Prompt copiado.', 'ok'); }
+    catch { $('#gerPrompt').select(); document.execCommand('copy'); toast('Prompt copiado.', 'ok'); }
+  };
+  if ($('#gerAbrirPasta')) $('#gerAbrirPasta').onclick = () => api('/api/gerador/abrir-pasta', { method: 'POST' }).catch((e) => toast(e.message, 'erro'));
+  if ($('#gerInstalarBtn')) $('#gerInstalarBtn').onclick = async () => {
+    const falhas = g.itens.filter((i) => i.nivel === 'falha').map((i) => `• ${i.nome}: ${i.detalhe}`);
+    if (falhas.length && !confirm(`Esta máquina não atende a:\n\n${falhas.join('\n')}\n\nInstalar mesmo assim?`)) return;
+    try {
+      const { job } = await api('/api/gerador/instalar', { method: 'POST' });
+      acompanharInstalacao(job);
+    } catch (e) { toast(e.message, 'erro'); }
+  };
+  if ($('#gerIniciar')) $('#gerIniciar').onclick = async () => {
+    try {
+      const r = await api('/api/gerador/iniciar', { method: 'POST' });
+      toast(r.jaAberto ? 'O gerador já está rodando.' : 'Iniciando o gerador numa janela nova. A interface abre em alguns segundos.', 'ok');
+      esperarGeradorNoAr();
+    } catch (e) { toast(e.message, 'erro'); }
+  };
+}
+
+function acompanharInstalacao(id) {
+  const caixa = $('#gerProgresso');
+  if (caixa) caixa.hidden = false;
+  if ($('#gerInstalarBtn')) $('#gerInstalarBtn').disabled = true;
+  acompanharJob(id, (j) => {
+    const barra = $('#gerProgresso i');
+    if (barra) barra.style.width = `${Math.round((j.progresso || 0) * 100)}%`;
+    if ($('#gerMsg')) $('#gerMsg').textContent = j.ultima || 'preparando…';
+  }).then((j) => {
+    if (j.status === 'ok') toast('WanGP baixado. Siga na janela do instalador (escolha 1).', 'ok');
+    else toast('Instalação: ' + (j.erro || 'falhou'), 'erro');
+    if (estado.vista === 'gerador') abrirGerador();
+  });
+}
+
+// depois de "Iniciar", espera a interface responder e troca o botão para "Abrir o gerador"
+async function esperarGeradorNoAr() {
+  for (let i = 0; i < 90 && estado.vista === 'gerador'; i++) {
+    await new Promise((ok) => setTimeout(ok, 2000));
+    const g = await api('/api/gerador/maquina').catch(() => null);
+    if (g?.noAr) { gz.info = g; desenharGerador(); toast('Gerador no ar!', 'ok'); window.open(g.url, '_blank', 'noopener'); return; }
+  }
+}
+
+async function carregarVideosGerador() {
+  gz.videos = await api('/api/gerador/videos').catch(() => []);
+  $('#gerVideos').innerHTML = `
+    <div class="voz-linha"><h3>Vídeos gerados</h3><span class="espaco"></span><button class="btn mini" id="gerAtualizarVideos">⟳</button></div>
+    ${gz.videos.length ? `<div class="ger-videos">${gz.videos.map((v) => `
+      <div class="ger-video"><span class="mono">${esc(v.nome)}</span><small>${quando(v.criado)} · ${(v.tamanho / 1048576).toFixed(1)} MB</small>
+        ${v.importado ? '<span class="ger-sit instalado">no Editor</span>' : `<button class="btn mini" data-importar="${esc(v.nome)}">➜ Editor</button>`}</div>`).join('')}</div>`
+    : '<p class="ajuda">Os vídeos que o gerador salvar na pasta <span class="mono">outputs</span> aparecem aqui, prontos para ir ao Editor.</p>'}`;
+  $('#gerAtualizarVideos').onclick = carregarVideosGerador;
+  $$('#gerVideos [data-importar]').forEach((b) => b.onclick = async () => {
+    b.disabled = true;
+    try {
+      await api('/api/gerador/importar', { corpo: { nome: b.dataset.importar } });
+      await carregarMidia();
+      toast('Vídeo na Mídia do Editor.', 'ok');
+      carregarVideosGerador();
+    } catch (e) { b.disabled = false; toast(e.message, 'erro'); }
+  });
+}
+
 function seguirHash() {
   const [vista, id] = location.hash.slice(1).split('/');
   if (vista === 'projetos' && id) abrirProjeto(id);
-  else if (['modelos', 'projetos', 'voz', 'kie', 'editor'].includes(vista)) irPara(vista);
+  else if (['modelos', 'projetos', 'voz', 'kie', 'gerador', 'editor'].includes(vista)) irPara(vista);
 }
 window.addEventListener('hashchange', seguirHash);
 

@@ -79,6 +79,9 @@ Escolha a fonte (**ElevenLabs** recomendado, síntese grátis ou sua biblioteca)
 ### 🎬 Cenas IA (Kie.ai)
 Vídeos realistas (pessoas falando, UGC, produto em cena) com Veo 3.1, Kling 3.0, Seedance 2.0 e Grok, pagos por geração na sua conta **kie.ai**. Cole a chave no topo da aba (fica só neste PC), escreva a ideia, gere o prompt com a IA, envie fotos se quiser e gere. O vídeo vai para a Mídia do Editor e o custo real aparece em cada resultado.
 
+### ⚡ Opus Generator (grátis, no seu PC)
+Vídeo com fala em português, som e música numa geração só, com o modelo aberto **MiniMax H3** rodando na sua placa de vídeo (via WanGP). A aba confere se a máquina aguenta (mínimo: placa de 6 GB, 24 GB de RAM, 35 GB livres), instala com o botão **⬇ Instalar** (Windows), abre o gerador e traz os vídeos da pasta `outputs` para a Mídia do Editor.
+
 ### 3. Editor (estilo CapCut)
 **Timeline**: régua de tempo e **cabeçote** (a linha laranja). Clique ou arraste na régua para navegar. As faixas são:
 🎬 Vídeo · 🅣 Textos · 💬 Legendas · 🎵 Trilha · 🎙 Áudios.

@@ -17,6 +17,7 @@ import { transcrever } from './lib/transcricao.js';
 import { gerarPromptDeIdeia, sugerirExtras } from './lib/assistente.js';
 import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 import { registrarRotasKie } from './lib/rotas-kie.js';
+import { registrarRotasGerador } from './lib/rotas-gerador.js';
 
 const RAIZ = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(RAIZ, 'awesome-opus5-5-videos');
@@ -629,6 +630,7 @@ audioHooks = registrarRotasAudio(app, {
 });
 
 registrarRotasKie(app, { DADOS, PASTAS, criarJob, msgJob, jobPublico, lerJson, gravarJson, registrarMidia });
+registrarRotasGerador(app, { DADOS, PASTAS, criarJob, msgJob, lerJson, gravarJson, registrarMidia });
 
 // ---- jobs
 app.get('/api/jobs', (_req, res) => {
