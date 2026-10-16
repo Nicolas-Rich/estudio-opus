@@ -16,7 +16,8 @@ test('pedido traz a fala com tempos relativos ao início do elemento', () => {
   const p = montarPedidoElemento({ el: { id: 'e1', inicio: 10, fim: 12, camada: 'sobre', regiao: { x: 0, y: 0, w: 100, h: 20 }, descricao: 'x', textoNaTela: 'OI' },
     estilo, palavras: [{ p: 'ontem', inicio: 9, fim: 9.5 }, { p: 'bola', inicio: 10.5, fim: 10.9 }] });
   assert.match(p, /0\.50 bola/);
-  assert.doesNotMatch(p, /ontem/);
+  assert.doesNotMatch(p, /\d\.\d\d ontem/); // fora da lista com tempos (pode aparecer só na frase de contexto)
+  assert.match(p, /O que a pessoa está dizendo neste momento: "ontem bola"/);
   assert.match(p, /2\.00 s/);
 });
 
@@ -60,4 +61,12 @@ test('I3: render que falha não estraga o render.mov que já existia', async () 
   const render = async (o) => { fs.writeFileSync(o.saida, 'PELA-METADE'); throw new Error('Render cancelado'); };
   await assert.rejects(renderizarElemento({ el: { id: 'e1', inicio: 0, fim: 1, camada: 'tela-cheia' }, pasta, url: 'x', render }));
   assert.equal(fs.readFileSync(path.join(dir, 'render.mov'), 'utf8'), 'BOM');
+});
+
+test('estilo: pedido do elemento leva o sistema visual do estilo', async () => {
+  const { estiloPorId } = await import('../lib/edicao-ia/estilos.js');
+  const base = { id: 'e1', inicio: 0, fim: 1, camada: 'sobre', regiao: { x: 0, y: 0, w: 50, h: 50 }, descricao: 'x' };
+  const comEstilo = montarPedidoElemento({ el: base, estilo, palavras: [], estiloEdicao: 'criador-tech' });
+  assert.ok(comEstilo.includes(estiloPorId('criador-tech').regrasElemento.slice(0, 60)));
+  assert.doesNotMatch(montarPedidoElemento({ el: base, estilo, palavras: [], estiloEdicao: 'livre' }), /SISTEMA VISUAL/);
 });

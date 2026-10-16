@@ -83,3 +83,28 @@ test('I7: ids viram seguros para caminho de arquivo', () => {
   const { plano: p } = validarPlano(plano({ elementos: [el('../../x', 1, 2), el('título 3', 2, 3)] }), { duracao: 10 });
   for (const e of p.elementos) assert.match(e.id, /^[\w-]+$/);
 });
+
+test('estilo: pedido do plano leva as regras do estilo escolhido', async () => {
+  const { montarPedidoPlano } = await import('../lib/edicao-ia/plano.js');
+  const { estiloPorId } = await import('../lib/edicao-ia/estilos.js');
+  const tr = { duracao: 10, frases: [{ inicio: 0, fim: 1, texto: 'oi' }], palavras: [{ p: 'oi', inicio: 0, fim: 1 }] };
+  const p = montarPedidoPlano({ transcricao: tr, duracao: 10, estiloEdicao: 'criador-tech' });
+  assert.ok(p.includes(estiloPorId('criador-tech').regrasPlano.slice(0, 60)));
+});
+
+test('estilo: limita elementos pela duração e impõe a paleta do estilo', async () => {
+  const { estiloPorId } = await import('../lib/edicao-ia/estilos.js');
+  const elementos = Array.from({ length: 10 }, (_, i) => el(`e${i}`, i * 0.4, i * 0.4 + 0.3));
+  const { plano: p } = validarPlano(plano({ elementos, estilo: { paleta: ['#00ff00'] } }), { duracao: 10, estiloEdicao: 'criador-tech' });
+  assert.equal(p.elementos.length, 3);
+  assert.deepEqual(p.estilo.paleta, estiloPorId('criador-tech').estilo.paleta);
+});
+
+test('movimento janela precisa de regiao (limitada a 0–100)', () => {
+  const { plano: p } = validarPlano(plano({ movimentos: [
+    { inicio: 1, fim: 3, tipo: 'janela', regiao: { x: 10, y: 20, w: 120, h: 40 } },
+    { inicio: 6, fim: 8, tipo: 'janela' },
+  ] }), { duracao: 10 });
+  assert.equal(p.movimentos.length, 1);
+  assert.deepEqual(p.movimentos[0].regiao, { x: 10, y: 20, w: 90, h: 40 });
+});

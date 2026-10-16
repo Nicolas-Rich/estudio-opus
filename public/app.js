@@ -2017,10 +2017,10 @@ $('#edVolPrevia').oninput = (e) => {
 
 const FILTROS_CSS = {
   '': '', vivido: 'saturate(1.35) contrast(1.08)', pb: 'grayscale(1) contrast(1.12)', quente: 'sepia(.22) saturate(1.15)',
-  frio: 'hue-rotate(-12deg) saturate(.95) brightness(1.02)', vintage: 'sepia(.45) contrast(.9) brightness(1.05)',
+  frio: 'hue-rotate(-12deg) saturate(.95) brightness(1.02)', vintage: 'sepia(.45) contrast(.9) brightness(1.05)', roxo: 'contrast(1.1) saturate(.88) brightness(.96) hue-rotate(8deg)',
   contraste: 'contrast(1.25) saturate(1.1)', desbotado: 'contrast(.85) saturate(.75) brightness(1.03)', cinema: 'contrast(1.2) saturate(.9) hue-rotate(-6deg)',
 };
-const NOMES_FILTROS = { '': 'Nenhum', vivido: 'Vívido', pb: 'P&B', quente: 'Quente', frio: 'Frio', vintage: 'Vintage', contraste: 'Contraste', desbotado: 'Desbotado', cinema: 'Cinema' };
+const NOMES_FILTROS = { '': 'Nenhum', vivido: 'Vívido', pb: 'P&B', quente: 'Quente', frio: 'Frio', vintage: 'Vintage', contraste: 'Contraste', desbotado: 'Desbotado', cinema: 'Cinema', roxo: 'Roxo cinematográfico' };
 const cssFiltro = (f = {}) => [FILTROS_CSS[f.preset || ''], f.brilho ? `brightness(${(1 + +f.brilho).toFixed(2)})` : '',
   f.contraste && +f.contraste !== 1 ? `contrast(${f.contraste})` : '', f.saturacao != null && +f.saturacao !== 1 ? `saturate(${f.saturacao})` : ''].filter(Boolean).join(' ');
 
@@ -2178,6 +2178,7 @@ const ESTILOS_LEGENDA = {
   caixa: { nome: 'Caixa preta', destaque: '#ffd400', caixa: true },
   karaoke: { nome: 'Karaokê', destaque: '#00e5ff', karaoke: true },
   simples: { nome: 'Simples', destaque: null },
+  minimal: { nome: 'Minimal roxo', destaque: '#a78bfa', suave: true },
 };
 const FONTES_CSS = { negrito: '"Arial Black", Arial, sans-serif', impacto: 'Impact, sans-serif', serifa: 'Georgia, serif', normal: 'Arial, sans-serif', moderna: '"Segoe UI Black", "Segoe UI", sans-serif' };
 const TAMS_TEXTO = { p: 3.5, m: 5, g: 7, gg: 9.5 };
@@ -2205,10 +2206,10 @@ function desenharOverlays() {
   const palavras = item.palavras?.length ? item.palavras : [{ inicio: item.inicio, fim: item.fim, p: item.texto }];
   let ativa = -1;
   palavras.forEach((w, i) => { if (cab >= w.inicio) ativa = i; });
-  ov.style.top = `${topoPorPos(L.pos || 'base')}%`;
-  ov.style.transform = L.pos === 'topo' ? 'translate(-50%,0)' : L.pos === 'centro' ? 'translate(-50%,-50%)' : 'translate(-50%,-100%)';
+  ov.style.top = `${topoPorPos(L.pos || 'base', L.y)}%`;
+  ov.style.transform = L.pos === 'topo' ? 'translate(-50%,0)' : L.pos === 'centro' || L.pos === 'livre' ? 'translate(-50%,-50%)' : 'translate(-50%,-100%)';
   ov.style.fontSize = `${{ p: 3.8, m: 5, g: 6.4 }[L.tam] || 5}cqh`;
-  ov.className = `overlay-legenda ${est.caixa ? 'caixa' : ''}`;
+  ov.className = `overlay-legenda ${est.caixa ? 'caixa' : ''} ${est.suave ? 'suave' : ''}`;
   ov.innerHTML = palavras.map((w, i) => {
     const destaque = est.destaque && (est.karaoke ? i <= ativa : i === ativa);
     return `<span style="${destaque ? `color:${est.destaque};${est.pulo ? 'display:inline-block;transform:scale(1.12)' : ''}` : ''}">${esc(cx(w.p))}</span>`;
@@ -3633,6 +3634,7 @@ const fmtS = (s) => (+s).toFixed(2);
 
 async function abrirEdicaoIa() {
   eia.lista = await api('/api/edicao-ia').catch(() => []);
+  eia.estilos ||= await api('/api/edicao-ia/estilos').catch(() => []);
   try { eia.id ||= localStorage.getItem('eiaId'); } catch {}
   if (!eia.lista.some((e) => e.id === eia.id)) eia.id = eia.lista[0]?.id || null;
   $('#eiaLista').innerHTML = eia.lista.length
@@ -3675,8 +3677,10 @@ function desenharEia() {
         </div>`).join('')}
         <label class="eia-add">＋ Adicionar vídeos<input type="file" id="eiaArquivos" accept="video/*" multiple hidden></label>
       </div>
-      <label>Briefing <small>(opcional: produto, público, chamada final, estilo, pedidos como "quando eu falar bola, coloca uma bola na minha mão")</small>
-        <textarea id="eiaBriefing" rows="3">${esc(e.briefing || '')}</textarea></label>
+      <label>Estilo da edição<select id="eiaEstilo">${(eia.estilos || []).map((s) => `<option value="${esc(s.id)}" ${s.id === (e.estiloEdicao || 'criador-tech') ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}</select>
+        <small class="ajuda">${esc((eia.estilos || []).find((s) => s.id === (e.estiloEdicao || 'criador-tech'))?.descricao || '')}</small></label>
+      <label>Observações <small>(opcional — a edição é construída a partir do que você FALA no vídeo; use só para pedidos extras, como "quando eu falar bola, coloca uma bola na minha mão")</small>
+        <textarea id="eiaBriefing" rows="2">${esc(e.briefing || '')}</textarea></label>
       <label class="check"><input type="checkbox" id="eiaAuto" ${e.automatico ? 'checked' : ''}> Fazer tudo automático (pula a revisão do plano e monta direto no Editor)</label>
       <div class="voz-linha"><button class="btn primario" id="eiaPreparar" ${!e.ordem.length || trabalhando ? 'disabled' : ''}>✦ Preparar e planejar</button>
         <button class="btn mini perigo" id="eiaApagarEdicao">Apagar edição</button></div>
@@ -3789,7 +3793,8 @@ async function enviarVideosEia(arquivos) {
 
 function ligarEia() {
   const e = eia.d.estado;
-  const salvarCampos = () => api(`/api/edicao-ia/${eia.id}`, { method: 'PUT', corpo: { briefing: $('#eiaBriefing').value, automatico: $('#eiaAuto').checked } }).catch((x) => toast(x.message, 'erro'));
+  const salvarCampos = () => api(`/api/edicao-ia/${eia.id}`, { method: 'PUT', corpo: { briefing: $('#eiaBriefing').value, automatico: $('#eiaAuto').checked, estiloEdicao: $('#eiaEstilo').value } }).catch((x) => toast(x.message, 'erro'));
+  $('#eiaEstilo').onchange = async () => { await salvarCampos(); carregarEia(); };
   $('#eiaBriefing').onchange = salvarCampos;
   $('#eiaAuto').onchange = salvarCampos;
   $('#eiaArquivos').onchange = (ev) => enviarVideosEia(ev.target.files);

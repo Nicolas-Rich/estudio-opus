@@ -87,3 +87,16 @@ test('I4: a edição montada não herda a música da edição anterior', () => {
   const ed = montarEdicao({ plano: { estilo, manter: [{ inicio: 0, fim: 4 }], movimentos: [], elementos: [] }, midiaBase: 'b', edicaoId: 'x', elementosProntos: [] });
   assert.equal(ed.musica, null);
 });
+
+test('janela: a pessoa encolhe para caber no retângulo da janela, centralizada', () => {
+  const s = estadoDaImagem([{ inicio: 0, fim: 10, tipo: 'janela', regiao: { x: 10, y: 20, w: 40, h: 40 } }], 5);
+  assert.deepEqual(s, { escala: 0.4, x: 30, y: 40 });
+});
+
+test('estilo Criador tech: legenda minimal em minúsculas no peito e cor roxa nos clipes', () => {
+  const ed = montarEdicao({ plano: { estilo, manter: [{ inicio: 0, fim: 4 }], movimentos: [], elementos: [] }, midiaBase: 'b', edicaoId: 'x', elementosProntos: [], estiloEdicao: 'criador-tech' });
+  assert.equal(ed.legendas.estilo, 'minimal');
+  assert.equal(ed.legendas.maiusculas, false);
+  assert.equal(ed.legendas.pos, 'livre');
+  assert.equal(ed.clipes[0].filtro.preset, 'roxo');
+});
