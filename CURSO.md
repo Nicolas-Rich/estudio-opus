@@ -318,6 +318,18 @@ Gera vídeo com **fala em português, som ambiente e música numa geração só*
 
 > 💡 Sem placa compatível? Teste no Space oficial da MiniMax no Hugging Face (grátis, 2–5 min de GPU por dia; use 544x960 *fast*, 5 s, 6 passos, Upsample desligado). **Licença:** uso comercial sem royalties no Brasil, mas o anúncio precisa de aviso visível de que foi gerado por IA, e não pode usar rosto ou voz de outra pessoa sem consentimento.
 
+### 5.10 Edição IA (aba ✂ Edição IA, edita os vídeos que VOCÊ gravou)
+Você grava falando para a câmera; o estúdio edita em cima: corta pausas e erros, cria animações, elementos e 3D no tempo do que você diz, mexe na sua imagem (zoom, canto, meia tela) e monta tudo no Editor.
+
+1. Clique em **＋ Nova edição** e em **＋ Adicionar vídeos**. Pode mandar vários takes: eles viram **um vídeo só, na ordem da lista** (arraste para reordenar).
+2. Escreva um **briefing** (opcional): produto, público, chamada final, estilo, ou pedidos diretos como *"quando eu falar bola, coloca uma bola na minha mão"*.
+3. Clique em **✦ Preparar e planejar**. No seu PC: os vídeos são ajustados para 1080×1920 e emendados, a fala é transcrita (Whisper) e as pausas detectadas. Depois o Claude assiste e escreve o **plano**: o que cortar, os movimentos da sua imagem e cada elemento com o tempo exato.
+4. **Revise o plano**: a barra mostra em verde o que fica e listrado o que sai (clique num trecho listrado para mantê-lo); cada elemento vira um card onde você muda tempo, texto, descrição ou apaga. **↻ Refazer o plano** aceita um pedido ("mais 3D", "menos texto").
+5. Clique em **🎬 Gerar elementos**. Cada um é criado e renderizado com **fundo transparente**; a prévia aparece no card. Se um falhar, só ele fica vermelho (**Tentar de novo**); **Refazer…** muda um elemento pronto.
+6. **✔ Montar no Editor**: seus vídeos cortados vão para a faixa 🎬, os elementos para a faixa **🎞 Elementos** (arraste para mudar quando entram; no painel, **Refazer com um pedido** ou apagar), e as legendas já vêm prontas. A edição que estava aberta no Editor é guardada numa cópia (`dados/edicao-anterior-….json`). Exporte o MP4 como sempre.
+
+> 💡 **Fazer tudo automático** pula a revisão e monta direto. Revisar antes gasta menos do seu limite do Claude (você apaga o que não quer antes de gerar). Se o limite do Claude acabar no meio, os elementos prontos ficam e aparece **▶ Continuar** para seguir quando ele voltar. Um vídeo de ~20 s com 11 elementos usou 1 chamada para o plano + 1 por elemento (modelo Opus).
+
 ---
 
 ## Módulo 6 — Renderizar o MP4
