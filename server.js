@@ -19,6 +19,7 @@ import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 import { registrarRotasKie } from './lib/rotas-kie.js';
 import { registrarRotasGerador } from './lib/rotas-gerador.js';
 import { consertarHtml } from './lib/checar-html.js';
+import { resolverSobreposicoes } from './lib/sobreposicoes.js';
 
 const RAIZ = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(RAIZ, 'awesome-opus5-5-videos');
@@ -694,7 +695,8 @@ function resolverEdicao(tl) {
     const m = porNome.get(x.midia);
     return m ? { ...x, arquivo: path.join(PASTAS.midia, m.nome) } : null;
   }).filter(Boolean);
-  return { edicao: { ...tl, clipes, musica, audios } };
+  const sobreposicoes = resolverSobreposicoes(tl.sobreposicoes, path.join(DADOS, 'edicoes-ia'));
+  return { edicao: { ...tl, clipes, musica, audios, sobreposicoes } };
 }
 
 app.post('/api/exportar', async (req, res) => {
