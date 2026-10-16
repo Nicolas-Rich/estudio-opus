@@ -18,6 +18,7 @@ import { gerarPromptDeIdeia, sugerirExtras } from './lib/assistente.js';
 import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 import { registrarRotasKie } from './lib/rotas-kie.js';
 import { registrarRotasGerador } from './lib/rotas-gerador.js';
+import { consertarHtml } from './lib/checar-html.js';
 
 const RAIZ = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(RAIZ, 'awesome-opus5-5-videos');
@@ -177,7 +178,10 @@ function iniciarGeracao(p, pedido, origem, instrucao) {
   }).then(async (r) => {
     const atual = (await lerProjeto(p.id)) || p;
     const n = (atual.versoes?.length || 0) + 1;
-    await fs.writeFile(path.join(pastaProjeto(p.id), `v${n}.html`), r.html, 'utf8');
+    const conferido = consertarHtml(r.html);
+    if (conferido.trocas) msgJob(job, `Corrigi ${conferido.trocas} erro(s) de sintaxe no código (sinal antes de potência).`);
+    if (conferido.erros.length) msgJob(job, `⚠ O código tem erro de JavaScript e pode ficar em tela preta: ${conferido.erros[0]}. Use "Refinar" pedindo para corrigir.`);
+    await fs.writeFile(path.join(pastaProjeto(p.id), `v${n}.html`), conferido.html, 'utf8');
     atual.versoes = [...(atual.versoes || []), { n, criado: Date.now(), origem, instrucao: instrucao || null, custo: r.custo ?? null }];
     atual.versaoAtual = n;
     atual.status = 'pronto';
