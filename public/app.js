@@ -1034,6 +1034,8 @@ async function desenharAbaSom(p, c) {
       <label class="check"><input type="checkbox" id="efAmbiente" ${a.efeitos.comAmbiente !== false ? 'checked' : ''}> ambiência contínua (imersão)</label>
     </div>
     <label class="check" id="efTrilhaLinha"><input type="checkbox" id="efTrilha" ${a.efeitos.comTrilha ? 'checked' : ''}> incluir batida/trilha de fundo sintetizada</label>
+    <label class="check" id="efItensLinha"><input type="checkbox" id="efItens" ${a.efeitos.comItens !== false ? 'checked' : ''}> som em cada item que entra/sai (tons afinados + kit) <span class="ajuda" id="efItensResumo"></span></label>
+    <div id="efKit" class="chips pequenos kit-som"></div>
     <div id="efBib" class="ajuda" style="margin:0"></div>
     <button class="btn primario" id="efMapa">👁 Assistir ao vídeo e desenhar o som (IA)</button>
     <p class="ajuda" style="margin:-4px 0 0">A IA assiste ao vídeo (quadros, cortes, movimento, flashes e a sua locução) e planeja cada som com intenção: impactos no quadro, risers que terminam na revelação, camadas, pan, reverb e silêncios.</p>
@@ -1267,6 +1269,8 @@ async function desenharAbaSom(p, c) {
   function ajustarMotor() {
     const m = a.efeitos.motor;
     $('#efTrilhaLinha').hidden = m !== 'codigo';
+    $('#efItensLinha').hidden = m !== 'elevenlabs';
+    $('#efKit').hidden = m !== 'elevenlabs';
     $('#efBib').innerHTML = m === 'biblioteca'
       ? `${cacheBiblioteca.length} sons na biblioteca. <a href="#" id="efAbrirBib">abrir pasta</a> · <label style="display:inline;color:var(--acento-2);cursor:pointer">importar sons<input type="file" id="efImportar" multiple accept="audio/*" hidden></label>
          <br>Coloque sons que você pode usar (comprados, CC0 do Freesound, Pixabay, Mixkit). Os gerados pela ElevenLabs também ficam salvos aqui.`
@@ -1284,7 +1288,28 @@ async function desenharAbaSom(p, c) {
   }
 
   // linha do tempo "assistida": movimento, cortes, flashes, falas e cada som planejado
+  // kit de som dos itens: escala/timbre dos tons e as texturas (▶ ouvir, ↻ outra variação)
+  const NOME_TEXTURA = { tum: 'tum (itens grandes)', saida: 'saída', tique: 'tique (digitação)' };
+  function desenharKit() {
+    const e = a.efeitos;
+    const it = e.itens;
+    $('#efItensResumo').textContent = it ? `· ${it.total} sons de item · ${it.porSegundo} por segundo`
+      : e.kit ? '· gere a sonoplastia para ouvir' : '· assista ao vídeo para a IA montar o kit';
+    if (!e.kit) { $('#efKit').innerHTML = ''; return; }
+    const { tonica, modo, oitava } = e.kit.escala;
+    $('#efKit').innerHTML = `<span class="chip-info">🎹 ${esc(tonica)}${oitava} ${esc(modo.replace(/_/g, ' '))} · ${esc(e.kit.timbre)}</span>`
+      + Object.keys(e.kit.texturas || {}).map((k) => `<span class="chip-info">${
+        it?.sons?.[k] ? `<button type="button" data-ouvir-kit="${esc(it.sons[k])}" title="Ouvir">▶</button>` : ''}${NOME_TEXTURA[k] || k}<button type="button" data-variar-kit="${k}" title="Outra variação">↻</button></span>`).join('');
+    $$('#efKit [data-ouvir-kit]').forEach((b) => b.onclick = () => { audioAmostra.src = `/p/${p.id}/audio/sfx/${encodeURIComponent(b.dataset.ouvirKit)}`; audioAmostra.play().catch(() => {}); });
+    $$('#efKit [data-variar-kit]').forEach((b) => b.onclick = () => {
+      const k = b.dataset.variarKit;
+      e.kitVariantes = { ...(e.kitVariantes || {}), [k]: ((e.kitVariantes || {})[k] || 0) + 1 };
+      salvar();
+      toast(`Nova variação de "${NOME_TEXTURA[k] || k}" na próxima geração.`, 'ok');
+    });
+  }
   function desenharPlano() {
+    desenharKit();
     const e = a.efeitos;
     const an = e.analise;
     const D = an?.duracao || p.ajustes.duracao;
@@ -1387,6 +1412,7 @@ async function desenharAbaSom(p, c) {
     salvar();
   });
   $('#efAmbiente').onchange = (ev) => { a.efeitos.comAmbiente = ev.target.checked; salvar(); };
+  $('#efItens').onchange = (ev) => { a.efeitos.comItens = ev.target.checked; salvar(); };
   $('#efEstilo').onchange = (ev) => { a.efeitos.estilo = ev.target.value; $$('#efEstilos button').forEach((x) => x.classList.toggle('ativa', x.dataset.estilo === a.efeitos.estilo)); salvar(); };
   $('#efTrilha').onchange = (ev) => { a.efeitos.comTrilha = ev.target.checked; salvar(); };
   $('#efVol').oninput = (ev) => { a.efeitos.volume = +ev.target.value; salvar(); };

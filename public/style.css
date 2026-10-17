@@ -292,6 +292,8 @@ label > input, label > select, label > textarea { margin-top: 5px; color: var(--
 h3 { font-size: 13px; color: var(--texto-2); }
 .transcricao { background: #0f1115; border: 1px solid var(--borda); border-radius: 8px; padding: 8px 10px; max-height: 220px; overflow: auto; display: grid; gap: 4px; font-size: 13px; }
 .transcricao .mono { display: inline-block; width: 52px; color: var(--acento-2); }
+.kit-som .chip-info { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid var(--borda); border-radius: 999px; font-size: 12px; }
+.kit-som .chip-info button { background: none; border: 0; color: var(--acento-2); cursor: pointer; padding: 0 2px; }
 .caixa-meu-video { background: rgba(124,92,255,.08); border: 1px solid rgba(124,92,255,.4); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
 .caixa-ideia { background: rgba(255,106,61,.06); border: 1px solid rgba(255,106,61,.3); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
 
