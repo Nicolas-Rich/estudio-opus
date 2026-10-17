@@ -63,7 +63,7 @@ Também dá para começar já com a locução: no **Usar este modelo**, envie o 
 - impactos no quadro, risers que terminam na revelação e camadas;
 - pan, reverb, silêncios dramáticos, ambiência e stinger final.
 
-Escolha a fonte (**ElevenLabs** recomendado, síntese grátis ou sua biblioteca), o estilo e a intensidade. Depois clique em **👁 Assistir ao vídeo e desenhar o som** e em **🔊 Gerar sonoplastia**. Cada som pode ser ajustado (tempo, alinhamento, volume, pan, reverb), ouvido isolado (▶) ou trocado por outra variação (↻). Cliques, teclas, digitação, caneta e papel saem sempre no tratamento "quase ASMR" (de perto, macios, secos e sem aspereza).
+Escolha a fonte (**ElevenLabs** recomendado, síntese grátis ou sua biblioteca), o estilo e a intensidade. Depois clique em **👁 Assistir ao vídeo e desenhar o som** e em **🔊 Gerar sonoplastia**. Cada som pode ser ajustado (tempo, alinhamento, volume, pan, reverb), ouvido isolado (▶) ou trocado por outra variação (↻). Cliques, teclas, digitação, caneta e papel saem sempre no tratamento "quase ASMR" (de perto, macios, secos e sem aspereza). Com a ElevenLabs, **cada item que entra, sai ou se move ganha um som** (notas afinadas em escala, "tum" nos itens grandes, swish nas saídas, tiques na digitação), a partir de um kit que a IA monta para o vídeo. O MP4 final sai em −14 LUFS.
 
 **🔊 Assistir com som** toca a animação junto com a voz e os efeitos. No **Renderizar**, a caixa "incluir voz e efeitos" mixa tudo no MP4.
 

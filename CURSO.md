@@ -261,6 +261,10 @@ Com isso ela monta um **desenho de som** com intenção: impactos no quadro exat
 4. Ajuste o que quiser: tempo, alinhamento ("começa em", "termina em", "centro em"), volume, **pan** e **reverb**. Em **↻** você troca só aquele som por outra variação.
 5. Clique em **🔊 Gerar sonoplastia**. O estúdio gera cada som, trata (corta o silêncio do começo para o impacto cair no quadro, aplica EQ, pan e reverb de sala) e mixa como no cinema. Clique em **▶** em cada som para ouvi-lo isolado.
 
+> 🎵 **Som em cada item (fonte ElevenLabs):** o estúdio detecta, quadro a quadro, cada item que **entra, sai ou se move** e dá um som a cada um — como no motion design profissional. Itens entrando em sequência tocam **notas que sobem uma escala musical** (sintetizadas no seu PC, afinadas e grátis); itens grandes ganham um "tum" grave; saídas, um swish; movimentos, um deslize; digitação, tiques. A IA monta um **kit de som** para o vídeo (escala, timbre e 3 texturas): veja na aba Som, ouça cada textura (▶) ou peça outra variação (↻). A densidade segue a intensidade (Sutil 2, Equilibrado 3,5, Intenso 5 sons por segundo). Para desligar, desmarque "som em cada item que entra/sai".
+
+> 🔊 **O MP4 final sai masterizado em −14 LUFS**, o volume padrão de Reels e TikTok.
+
 > 🎧 **Cliques, teclas, caneta e papel soam "quase ASMR"**, em qualquer estilo: são pedidos como gravação de perto, tratados sem a aspereza dos agudos e sem reverb (secos, "no ouvido"), e quando um mesmo som se repete cada repetição varia um tiquinho de tom e volume, como dedos de verdade.
 
 > 💡 Sons já gerados ficam salvos: mexer em volume, pan, tempo ou reverb **não gasta créditos de novo**, só remixa (leva segundos).
