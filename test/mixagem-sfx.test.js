@@ -27,6 +27,18 @@ test('som que o corte apagaria inteiro volta sem corte', async () => {
   assert.ok(r.duracao > 3.5, `som ficou com ${r.duracao}s`);
 });
 
+test('som tátil passa pela cadeia ASMR e sai seco, mesmo com reverb pedido', async () => {
+  const r = await processarSom({ entrada: impacto, saida: path.join(pasta, 'tatil.wav'), categoria: 'ui', tatil: true, reverb: 0.5, ir: impacto });
+  assert.ok(r.duracao > 0.4 && r.duracao < 0.7, `sem cauda de reverb, mas durou ${r.duracao}s`);
+});
+
+test('repetições de um som tátil mixam com variação sem erro', async () => {
+  const saida = path.join(pasta, 'mix-tatil.wav');
+  const t = (inicio) => ({ arquivo: impacto, inicio, cortarInicio: 0, tatil: true });
+  await mixarSonorizacao({ trechos: [t(0), t(0.6), t(1.2), t(1.8)], ambiente: null, duracao: 3, saida, pastaTemp: pasta });
+  assert.ok((await sondar(saida)).duracao >= 3);
+});
+
 test('ambiência vazia (só cabeçalho) não trava a mixagem', { timeout: 20_000 }, async () => {
   const vazio = gerar('vazio.wav', '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', '0');
   const saida = path.join(pasta, 'mix.wav');

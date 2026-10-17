@@ -261,6 +261,8 @@ Com isso ela monta um **desenho de som** com intenção: impactos no quadro exat
 4. Ajuste o que quiser: tempo, alinhamento ("começa em", "termina em", "centro em"), volume, **pan** e **reverb**. Em **↻** você troca só aquele som por outra variação.
 5. Clique em **🔊 Gerar sonoplastia**. O estúdio gera cada som, trata (corta o silêncio do começo para o impacto cair no quadro, aplica EQ, pan e reverb de sala) e mixa como no cinema. Clique em **▶** em cada som para ouvi-lo isolado.
 
+> 🎧 **Cliques, teclas, caneta e papel soam "quase ASMR"**, em qualquer estilo: são pedidos como gravação de perto, tratados sem a aspereza dos agudos e sem reverb (secos, "no ouvido"), e quando um mesmo som se repete cada repetição varia um tiquinho de tom e volume, como dedos de verdade.
+
 > 💡 Sons já gerados ficam salvos: mexer em volume, pan, tempo ou reverb **não gasta créditos de novo**, só remixa (leva segundos).
 
 ### 5.6 Ouvir tudo junto
