@@ -98,3 +98,20 @@ test('resumo para o Claude traz total, densidade e no máximo 40 eventos', () =>
   assert.match(r, /por segundo/);
   assert.ok(r.split('\n').filter((l) => /^\s*-?\s*\d+[.,]\d+\s*s/.test(l)).length <= 40);
 });
+
+test('vídeo real: caixa que aparece em 1 s vira 1 entrada em 1,0 ± 0,1 s', { skip: !process.env.INTEGRACAO }, async () => {
+  const { spawnSync } = await import('node:child_process');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const { FFMPEG } = await import('../lib/ffmpeg.js');
+  const { quadrosDoVideo } = await import('../lib/eventos-visuais.js');
+  const v = path.join(os.tmpdir(), `eventos-${process.pid}.mp4`);
+  spawnSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=black:s=480x270:r=30:d=3',
+    '-vf', "drawbox=x=200:y=100:w=80:h=60:color=0x3c8cff:t=fill:enable='gte(t,1)'", '-pix_fmt', 'yuv420p', v]);
+  const r = await quadrosDoVideo(v);
+  assert.equal(r.colunas, 48);
+  assert.equal(r.linhas, 27);
+  const e = detectarEventos(r.quadros, r).filter((x) => x.tipo === 'entra');
+  assert.equal(e.length, 1);
+  assert.ok(Math.abs(e[0].t - 1) <= 0.1, `t=${e[0].t}`);
+});
