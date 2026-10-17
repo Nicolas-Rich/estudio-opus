@@ -170,7 +170,9 @@ Escreva o que é cada imagem ("logo da marca", "pote sabor chocolate"). A IA vê
 ### 3.6 Gere
 Clique em **✦ Gerar animação com Claude**. Leva de 1 a 6 minutos e você pode continuar usando o estúdio enquanto isso. Quando terminar, a animação aparece tocando na tela do projeto.
 
-> 💡 **Já gravou a locução?** Envie o áudio em **"Já tem a locução gravada?"**. O estúdio transcreve a sua fala e a animação já nasce **sincronizada** com ela.
+> 💡 **Já gravou a locução?** Envie o áudio em **"Seu vídeo falando ou a locução"**. O estúdio transcreve a sua fala e a animação já nasce **sincronizada** com ela.
+
+> 🎬 **Gravou um vídeo falando?** Envie o vídeo no mesmo campo. O estúdio **analisa o vídeo** — lê o que você fala e olha os quadros — e escreve sozinho o prompt de uma animação que entra **por cima** do seu vídeo, no tempo da sua fala (títulos no topo, sem cobrir o seu rosto). Revise o prompt, gere, e renderize: o MP4 sai com **o seu vídeo + a animação + o seu áudio**.
 
 ✅ **Checklist:** o seu primeiro projeto aparece em **Projetos** com status "pronto".
 
@@ -421,7 +423,7 @@ Clique em **⬇ Exportar MP4**. Sai tudo junto, no formato escolhido no topo: cl
 
 ### 🍳 Receita 2 — Vídeo com a SUA voz
 1. Grave a locução no celular (de 15 a 40s, ambiente silencioso).
-2. Em **Modelos**, abra um modelo e envie o áudio em **"Já tem a locução gravada?"** → gere.
+2. Em **Modelos**, abra um modelo e envie o áudio em **"Seu vídeo falando ou a locução"** → gere.
 3. Confira e ajuste o **atraso do áudio** na aba Som, se precisar → Renderizar → Editor → Legendas → Exportar.
 
 ### 🍳 Receita 3 — Vídeo longo sem estourar tokens

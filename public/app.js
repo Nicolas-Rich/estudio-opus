@@ -277,10 +277,11 @@ function formularioCriacao(m) {
           <input type="text" id="fNome" placeholder="${esc(m ? 'Modelo @' + m.autor : 'Novo vídeo')}">
         </label>
       </div>
-      <label>Já tem a locução gravada? (opcional)
+      <label>Seu vídeo falando ou a locução (opcional)
         <input type="file" id="fLocucao" accept="audio/*,video/*">
       </label>
-      <p class="ajuda" style="margin:-6px 0 0">Se enviar, o estúdio transcreve a sua fala com o tempo de cada palavra, a duração do vídeo vira a do áudio e a animação já nasce sincronizada com o que você fala.</p>
+      <div id="fVideoBaseBox" hidden></div>
+      <p class="ajuda" style="margin:-6px 0 0"><b>Vídeo seu falando:</b> o estúdio assiste ao vídeo, lê o que você fala e escreve o prompt de uma animação que entra <b>por cima</b> dele, no tempo da sua fala — o MP4 final sai com o seu vídeo e o seu áudio. <b>Só áudio:</b> a animação nasce sincronizada com a sua locução.</p>
       <button class="btn primario" id="fGerar" style="justify-content:center;padding:12px">✦ Gerar animação com Claude</button>
       <p class="ajuda">Usa o Claude Code instalado neste PC (sua assinatura). A geração leva de 1 a 6 minutos; você pode continuar usando o estúdio enquanto isso.</p>
     </div>`;
@@ -367,6 +368,49 @@ function ligarFormulario(m) {
     }
   };
 
+  // ---------- seu vídeo falando: o estúdio analisa (fala + quadros) e escreve o prompt da animação por cima
+  let videoBase = null;
+  const caixaVideoBase = (html) => { const b = $('#fVideoBaseBox'); b.hidden = !html; b.innerHTML = html || ''; };
+  const analisarVideoBase = async (f) => {
+    videoBase = null;
+    caixaVideoBase(`<div class="ref-video"><b>🎬 ${esc(f.name)}</b><p class="ajuda" style="margin:0" id="fVideoBaseMsg">Enviando o vídeo…</p></div>`);
+    try {
+      const q = new URLSearchParams({ nome: f.name, ideia: $('#fIdeia').value.trim(), modelo: $('#fModelo').value });
+      const r = await fetch(`/api/video-base?${q}`, { method: 'POST', body: f });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro);
+      const fim = await acompanharJob(d.job.id, (j) => { const el = $('#fVideoBaseMsg'); if (el && j.ultima) el.textContent = j.ultima; });
+      if (fim.status !== 'ok') throw new Error(fim.erro || 'A análise do vídeo falhou.');
+      if ($('#fLocucao')?.files[0] !== f) return; // trocou de arquivo no meio
+      const v = fim.resultado;
+      videoBase = v.locucao;
+      promptAnterior = $('#fPrompt').value;
+      $('#fPrompt').value = v.prompt;
+      $('#fDesfazerPrompt').hidden = false;
+      $('#fDuracao').value = Math.max(2, Math.round(v.duracao * 10) / 10);
+      const prop = v.largura / v.altura;
+      const fmt = FORMATOS.reduce((a, b) => (Math.abs(b.largura / b.altura - prop) < Math.abs(a.largura / a.altura - prop) ? b : a));
+      $$('#fFormatos .formato').forEach((x) => x.classList.toggle('ativa', x.dataset.id === fmt.id));
+      caixaVideoBase(`<div class="ref-video">
+        <div class="ref-topo"><b>🎬 ${esc(f.name)}</b><span class="mono">${v.duracao.toFixed(1)}s · ${v.largura}×${v.altura}</span>
+          <button type="button" class="btn mini" id="fVideoBaseDeNovo">↻ analisar de novo</button></div>
+        <p class="ajuda" style="margin:0">✓ Prompt escrito a partir do seu vídeo — revise lá em cima. A animação entra <b>por cima</b> do seu vídeo, com fundo transparente e no tempo da sua fala.</p>
+      </div>`);
+      $('#fVideoBaseDeNovo').onclick = () => analisarVideoBase(f);
+      $('#fPrompt').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      toast(`Prompt pronto. Formato ${fmt.curto} e duração ${v.duracao.toFixed(1)}s ajustados ao seu vídeo.`, 'ok');
+    } catch (err) {
+      if ($('#fLocucao')?.files[0] !== f) return;
+      caixaVideoBase(`<div class="erro-caixa">${esc(err.message)}</div>`);
+    }
+  };
+  $('#fLocucao').onchange = (e) => {
+    const f = e.target.files[0];
+    videoBase = null;
+    if (f && f.type.startsWith('video/')) analisarVideoBase(f);
+    else caixaVideoBase('');
+  };
+
   // ---------- assistente: ideia → prompt, e sugestão de instruções extras
   const ajustesDoForm = () => {
     const f = formatoPorId($('#fFormatos .ativa')?.dataset.id);
@@ -434,7 +478,9 @@ function ligarFormulario(m) {
     try {
       let locucao;
       const arqLocucao = $('#fLocucao').files[0];
-      if (arqLocucao) {
+      if (arqLocucao?.type.startsWith('video/') && !videoBase) throw new Error('Espere a análise do seu vídeo terminar (ou tire o vídeo).');
+      if (videoBase) locucao = videoBase;
+      else if (arqLocucao) {
         $('#fGerar').textContent = 'Enviando a locução…';
         const q = new URLSearchParams({ nome: arqLocucao.name, dica: [ajustes.tema, ajustes.textos].filter(Boolean).join('. ') });
         const r0 = await fetch(`/api/audio/locucao?${q}`, { method: 'POST', body: arqLocucao });
@@ -445,7 +491,7 @@ function ligarFormulario(m) {
         locucao = fim.resultado.locucao;
         $('#fGerar').textContent = `Locução transcrita (${fim.resultado.duracao.toFixed(1)}s) — criando…`;
       }
-      const r = await api('/api/projetos', { corpo: { slug: m?.slug, prompt, ajustes, modelo: $('#fModelo').value, nome: $('#fNome').value.trim(), locucao, imagens: imagensPayload(), videoRef: videoRef?.id, fiel: $('#fFiel') ? $('#fFiel').checked : false } });
+      const r = await api('/api/projetos', { corpo: { slug: m?.slug, prompt, ajustes, modelo: $('#fModelo').value, nome: $('#fNome').value.trim(), locucao, videoFundo: videoBase || undefined, imagens: imagensPayload(), videoRef: videoRef?.id, fiel: $('#fFiel') ? $('#fFiel').checked : false } });
       fecharModal();
       toast('Geração iniciada! Acompanhe no projeto.', 'ok');
       abrirProjeto(r.projeto.id);
@@ -580,7 +626,8 @@ function desenharDetalhe(p) {
     <div class="detalhe">
       <div class="preview-caixa">
         <div class="preview-area" id="pvArea">
-          ${p.versaoAtual ? `<iframe id="pvFrame" src="/p/${p.id}/?v=${p.versaoAtual}&t=${Date.now()}" width="${W}" height="${H}" allow="autoplay; fullscreen"></iframe>` : ''}
+          ${p.videoFundo ? `<video id="pvFundo" src="/p/${p.id}/fundo" width="${W}" height="${H}" muted playsinline preload="auto"></video>` : ''}
+          ${p.versaoAtual ? `<iframe id="pvFrame" class="${p.videoFundo ? 'sobre-video' : ''}" src="/p/${p.id}/?v=${p.versaoAtual}&t=${Date.now()}" width="${W}" height="${H}" allow="autoplay; fullscreen"></iframe>` : ''}
           <div class="overlay-gerando" id="ovGerando" ${p.status === 'gerando' ? '' : 'hidden'}>
             <div><div class="spinner"></div><b>O Claude está criando a animação</b>
             <p class="mono" id="ovMsg">Aguardando…</p>
@@ -619,6 +666,13 @@ function desenharDetalhe(p) {
   $('#pComSom').onclick = () => assistirComSom(p);
   $('#pReiniciar').onclick = () => { pararSomPreview(); const f = $('#pvFrame'); if (f) f.src = f.src.replace(/&t=\d+/, '&t=' + Date.now()); };
   $$('.painel-abas button', el).forEach((b) => b.onclick = () => { estado.abaProjeto = b.dataset.aba; desenharDetalhe(p); });
+  // animação por cima do seu vídeo: o vídeo recomeça junto com a animação a cada recarga da prévia
+  const fundo = $('#pvFundo');
+  if (fundo) {
+    const recomecar = () => { fundo.currentTime = 0; fundo.play().catch(() => {}); };
+    $('#pvFrame')?.addEventListener('load', recomecar);
+    recomecar();
+  }
   ligarTamanhoPreview(el);
   encaixarIframe();
   desenharAba(p);
@@ -686,6 +740,8 @@ function encaixarIframe() {
   f.style.transform = `scale(${e})`;
   f.style.left = Math.max(12, (area.clientWidth - sw) / 2) + "px";
   f.style.top = Math.max(12, (area.clientHeight - sh) / 2) + "px";
+  const fundo = $('#pvFundo');
+  if (fundo) { fundo.style.transform = f.style.transform; fundo.style.left = f.style.left; fundo.style.top = f.style.top; }
   let esp = $("#pvEspaco");
   if (!esp) { esp = document.createElement("div"); esp.id = "pvEspaco"; area.appendChild(esp); }
   esp.style.width = (sw + 24) + "px"; esp.style.height = (sh + 24) + "px";

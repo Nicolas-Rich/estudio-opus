@@ -53,7 +53,9 @@ O Claude lê o **código da animação** para descobrir quando cada coisa aconte
 3. **Sincronizar a animação com o meu áudio**: o Claude refaz a linha do tempo para cada texto e cena entrarem quando você fala aquilo, e a duração do vídeo vira a do áudio.
 4. Os refinamentos seguintes mantêm a sincronia.
 
-Também dá para começar já com a locução: no **Usar este modelo**, envie o áudio em "Já tem a locução gravada?" e a animação já nasce sincronizada.
+Também dá para começar já com a locução: no **Usar este modelo**, envie o áudio em "Seu vídeo falando ou a locução" e a animação já nasce sincronizada.
+
+**Animação por cima do seu vídeo:** envie no mesmo campo um **vídeo seu falando**. O estúdio assiste ao vídeo (lê a sua fala com o tempo de cada palavra e olha os quadros), escreve o prompt de uma animação que entra **por cima** dele e ajusta formato e duração. Revise o prompt e gere: a prévia mostra a animação sobre o seu vídeo, e o MP4 final sai com o seu vídeo, a animação e o seu áudio original (vai para a Mídia do Editor).
 
 **ElevenLabs**: o modelo padrão é o **Eleven v4**. Com a permissão **Voices (Read e Write)** na chave, a lista mostra as **suas vozes** e as **vozes brasileiras da Voice Library** com o nome exato do site, busca por nome e ▶ amostra. A primeira vez que você usa uma voz da biblioteca, ela é adicionada à sua conta e ocupa um slot de voz do seu plano.
 

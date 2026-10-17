@@ -14,7 +14,9 @@ import { registrarRotasAudio, estadoAudio, faixasDoProjeto } from './lib/rotas-a
 import { aplicarAudioNoVideo } from './lib/audio.js';
 import { exportarEdicao } from './lib/montagem.js';
 import { transcrever } from './lib/transcricao.js';
-import { gerarPromptDeIdeia, sugerirExtras } from './lib/assistente.js';
+import { gerarPromptDeIdeia, sugerirExtras, escreverPromptDoVideo } from './lib/assistente.js';
+import { analisarVideo } from './lib/analise-video.js';
+import { comporSobreVideo, sondarVideo } from './lib/sobre-video.js';
 import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 import { registrarRotasKie } from './lib/rotas-kie.js';
 import { registrarRotasGerador } from './lib/rotas-gerador.js';
@@ -285,6 +287,59 @@ app.post('/api/assistente', async (req, res) => {
   }
 });
 
+// "animação por cima do meu vídeo": analisa o vídeo (o que a pessoa fala + quadros) e escreve o prompt.
+// Guarda no mesmo formato da locução gravada, para a criação do projeto sincronizar a animação com a fala.
+app.post('/api/video-base', async (req, res) => {
+  const original = path.basename(String(req.query.nome || 'video.mp4'));
+  const ext = path.extname(original).toLowerCase();
+  if (!EXT_VIDEO.test(ext) || ext === '.gif') return res.status(400).json({ erro: 'Envie um arquivo de vídeo (MP4, MOV, WEBM…).' });
+  const base = `locucao-${Date.now().toString(36)}`;
+  const arq = path.join(PASTAS.temp, base + ext);
+  await new Promise((ok, falha) => { const ws = createWriteStream(arq); req.pipe(ws); ws.on('finish', ok); ws.on('error', falha); });
+  const info = await sondarVideo(arq);
+  if (!info?.largura || !info.duracao) {
+    await fs.rm(arq, { force: true });
+    return res.status(400).json({ erro: 'Não consegui ler esse vídeo.' });
+  }
+  if (!info.temAudio) {
+    await fs.rm(arq, { force: true });
+    return res.status(400).json({ erro: 'Esse vídeo não tem áudio: a animação é construída a partir do que você fala.' });
+  }
+  const ideia = String(req.query.ideia || '').slice(0, 2000);
+  const job = criarJob('assistente', { rotulo: 'Analisando o seu vídeo' });
+  job.status = 'rodando';
+  res.json({ job: jobPublico(job) });
+  const pastaQuadros = path.join(PASTAS.temp, base + '-quadros');
+  try {
+    msgJob(job, 'Lendo o que você fala (Whisper, no seu PC)…');
+    const t = await transcrever({ arquivo: arq, pastaTemp: PASTAS.temp, dica: ideia.slice(0, 300), sinal: job.controle.signal });
+    if (!t.palavras.length) throw new Error('Não encontrei fala no vídeo.');
+    job.progresso = 0.4;
+    msgJob(job, 'Olhando os quadros do vídeo…');
+    const { folhas } = await analisarVideo({ video: arq, pasta: pastaQuadros, duracao: info.duracao });
+    job.progresso = 0.55;
+    msgJob(job, 'O Claude está assistindo ao vídeo e escrevendo o prompt…');
+    const prompt = await escreverPromptDoVideo({
+      transcricao: t, folhas, largura: info.largura, altura: info.altura, duracao: info.duracao, ideia,
+      modelo: String(req.query.modelo || '') || 'claude-sonnet-5-5', pastaImagens: pastaQuadros, sinal: job.controle.signal,
+    });
+    await gravarJson(path.join(PASTAS.temp, base + '.json'), {
+      arquivo: base + ext, nomeOriginal: original, transcricao: t,
+      video: { largura: info.largura, altura: info.altura, duracao: info.duracao },
+    });
+    job.resultado = { locucao: base, prompt, largura: info.largura, altura: info.altura, duracao: info.duracao };
+    job.status = 'ok';
+    job.progresso = 1;
+    msgJob(job, 'Prompt pronto.');
+  } catch (e) {
+    job.status = 'erro';
+    job.erro = e.message;
+    await fs.rm(arq, { force: true });
+  } finally {
+    fs.rm(pastaQuadros, { recursive: true, force: true }).catch(() => {});
+  }
+});
+
 // pôster do modelo: baixa uma vez do CDN do Skillry e guarda em dados/posters
 app.get('/poster/:slug', async (req, res) => {
   const m = modelosPorSlug.get(req.params.slug);
@@ -319,7 +374,8 @@ app.get('/api/projetos/:id', async (req, res) => {
 });
 
 app.post('/api/projetos', async (req, res) => {
-  const { slug, prompt, ajustes, modelo, nome, locucao: locucaoEnviada, imagens: imagensEnviadas } = req.body || {};
+  const { slug, prompt, ajustes, modelo, nome, locucao: locucaoEnviada, imagens: imagensEnviadas, videoFundo } = req.body || {};
+  if (videoFundo && videoFundo !== locucaoEnviada) return res.status(400).json({ erro: 'Vídeo de fundo inválido.' });
   if (!prompt || !ajustes?.largura || !ajustes?.altura || !ajustes?.duracao) {
     return res.status(400).json({ erro: 'Faltam prompt, formato ou duração.' });
   }
@@ -343,13 +399,28 @@ app.post('/api/projetos', async (req, res) => {
   await salvarProjeto(p);
   let locucao = null;
   let projeto = p;
+  // o vídeo enviado fica por baixo da animação (copiado antes de a locução mover o arquivo)
+  if (videoFundo) {
+    const meta = /^locucao-[a-z0-9]+$/.test(videoFundo) ? await lerJson(path.join(PASTAS.temp, videoFundo + '.json'), null) : null;
+    if (!meta?.video) {
+      await fs.rm(pastaProjeto(id), { recursive: true, force: true });
+      return res.status(400).json({ erro: 'O vídeo enviado não foi encontrado (analise o vídeo de novo).' });
+    }
+    const dirAssets = path.join(pastaProjeto(id), 'assets');
+    await fs.mkdir(dirAssets, { recursive: true });
+    const nomeFundo = 'fundo' + path.extname(meta.arquivo);
+    await fs.copyFile(path.join(PASTAS.temp, meta.arquivo), path.join(dirAssets, nomeFundo));
+    p.videoFundo = { arquivo: nomeFundo, ...meta.video };
+    p.ajustes.sobreVideo = true;
+    await salvarProjeto(p);
+  }
   if (locucaoEnviada) {
     try {
       const l = await audioHooks.anexarLocucao(p, locucaoEnviada);
       locucao = l.locucao;
       // relê do disco: anexarLocucao gravou a faixa de voz no projeto
       projeto = await lerProjeto(id);
-      projeto.ajustes.duracao = Math.ceil((l.duracao + 0.4) * 10) / 10;
+      projeto.ajustes.duracao = projeto.videoFundo ? Math.round(projeto.videoFundo.duracao * 10) / 10 : Math.ceil((l.duracao + 0.4) * 10) / 10;
     } catch (e) {
       await fs.rm(pastaProjeto(id), { recursive: true, force: true });
       return res.status(400).json({ erro: e.message });
@@ -575,7 +646,16 @@ app.get(['/p/:id', '/p/:id/'], async (req, res) => {
   const n = Number(req.query.v) || p?.versaoAtual;
   if (!n) return res.status(404).send('<body style="background:#111;color:#999;font:16px sans-serif;display:grid;place-items:center;height:100vh;margin:0">Ainda gerando…</body>');
   res.set('Cache-Control', 'no-store');
-  res.type('html').send(await fs.readFile(path.join(pastaProjeto(p.id), `v${n}.html`), 'utf8'));
+  const html = await fs.readFile(path.join(pastaProjeto(p.id), `v${n}.html`), 'utf8');
+  // animação por cima do vídeo: a página nunca pinta o fundo (o vídeo da pessoa fica por baixo)
+  res.type('html').send(p.ajustes?.sobreVideo ? html.replace(/<head[^>]*>/i, (m) => `${m}<style>:root{color-scheme:normal!important}html,body{background:transparent!important}</style>`) : html);
+});
+app.get('/p/:id/fundo', async (req, res) => {
+  if (!idValido(req.params.id)) return res.status(400).end();
+  const p = await lerProjeto(req.params.id);
+  const arq = p?.videoFundo && path.join(pastaProjeto(p.id), 'assets', path.basename(p.videoFundo.arquivo));
+  if (!arq || !existsSync(arq)) return res.status(404).end();
+  res.sendFile(arq);
 });
 
 app.post('/api/projetos/:id/render', async (req, res) => {
@@ -596,22 +676,29 @@ app.post('/api/projetos/:id/render', async (req, res) => {
     const atualAudio = (await lerProjeto(p.id)) || p;
     const faixas = o.comAudio === false ? [] : faixasDoProjeto(atualAudio, pastaProjeto(p.id), +o.pularInicio || 0);
     const mudo = faixas.length ? path.join(PASTAS.temp, `${job.id}-mudo.mp4`) : saida;
+    // animação por cima do vídeo: renderiza com fundo transparente e depois compõe sobre o vídeo enviado
+    const anim = p.videoFundo ? path.join(PASTAS.temp, `${job.id}-anim.mov`) : null;
     try {
       await renderizarHtml({
         url: `${BASE}/p/${p.id}/?v=${versao}`,
-        saida: mudo, largura, altura, fps, duracao,
+        saida: anim || mudo, transparente: !!anim, largura, altura, fps, duracao,
         layoutLargura: p.ajustes.largura,
         layoutAltura: Math.round(p.ajustes.largura * (altura / largura)),
         pularInicio: +o.pularInicio || 0,
         sinal: job.controle.signal,
         progresso: (pr, m) => { if (pr != null) job.progresso = pr; msgJob(job, m); },
       });
+      if (anim) {
+        msgJob(job, 'Colocando a animação por cima do seu vídeo…');
+        await comporSobreVideo({ fundo: path.join(pastaProjeto(p.id), 'assets', p.videoFundo.arquivo), anim, saida: mudo, largura, altura, fps, duracao, inicio: +o.pularInicio || 0, sinal: job.controle.signal });
+        await fs.rm(anim, { force: true });
+      }
       if (faixas.length) {
         msgJob(job, 'Mixando voz e efeitos no vídeo…');
         await aplicarAudioNoVideo(mudo, faixas, saida);
         await fs.rm(mudo, { force: true });
       }
-      const item = await registrarMidia(saida, { origem: 'render', projetoId: p.id, titulo: `${p.nome} (v${versao})` });
+      const item = await registrarMidia(saida, { origem: 'render', projetoId: p.id, titulo: `${p.nome} (v${versao})${p.videoFundo ? ' (com seu vídeo)' : ''}` });
       const atual = await lerProjeto(p.id);
       if (atual) { atual.renders = [...(atual.renders || []), nome]; await salvarProjeto(atual); }
       job.resultado = item;
@@ -620,6 +707,7 @@ app.post('/api/projetos/:id/render', async (req, res) => {
     } catch (e) {
       await fs.rm(saida, { force: true });
       if (mudo !== saida) await fs.rm(mudo, { force: true });
+      if (anim) await fs.rm(anim, { force: true });
       job.status = 'erro';
       job.erro = e.message;
       msgJob(job, 'Erro: ' + e.message);
