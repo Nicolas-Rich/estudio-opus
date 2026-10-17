@@ -734,7 +734,9 @@ function mudarZoom(v) {
 }
 function encaixarIframe() {
   const area = $('#pvArea');
-  const f = $('#pvFrame');
+  const fundo = $('#pvFundo');
+  // sem animação ainda (gerando), o vídeo de fundo sozinho também precisa caber na tela
+  const f = $('#pvFrame') || fundo;
   if (!area || !f) return;
   const W = +f.width;
   const H = +f.height;
@@ -746,8 +748,7 @@ function encaixarIframe() {
   f.style.transform = `scale(${e})`;
   f.style.left = Math.max(12, (area.clientWidth - sw) / 2) + "px";
   f.style.top = Math.max(12, (area.clientHeight - sh) / 2) + "px";
-  const fundo = $('#pvFundo');
-  if (fundo) { fundo.style.transform = f.style.transform; fundo.style.left = f.style.left; fundo.style.top = f.style.top; }
+  if (fundo && fundo !== f) { fundo.style.transform = f.style.transform; fundo.style.left = f.style.left; fundo.style.top = f.style.top; }
   let esp = $("#pvEspaco");
   if (!esp) { esp = document.createElement("div"); esp.id = "pvEspaco"; area.appendChild(esp); }
   esp.style.width = (sw + 24) + "px"; esp.style.height = (sh + 24) + "px";
