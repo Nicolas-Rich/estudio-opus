@@ -93,3 +93,10 @@ test('momentos do plano: só as categorias grandes', () => {
   assert.ok(MOMENTOS_GRANDES.includes('impacto') && MOMENTOS_GRANDES.includes('stinger'));
   assert.deepEqual(momentosDoPlano([{ inicio: 1, categoria: 'impacto' }, { inicio: 2, categoria: 'ui' }, { inicio: 3, categoria: 'riser' }]), [1, 3]);
 });
+
+test('a escada não sobe sem limite: dá a volta em duas oitavas e recomeça num grupo novo', () => {
+  const r = mapa(Array.from({ length: 60 }, (_, k) => ev(k * 0.25, 'entra', { grupo: 0 })), { duracao: 20 });
+  assert.ok(so(r, 'tom').every((i) => i.grau >= 0 && i.grau < 10), JSON.stringify(so(r, 'tom').map((i) => i.grau)));
+  const g = mapa([ev(1, 'entra', { grupo: 0 }), ev(1.2, 'entra', { grupo: 0 }), ev(1.4, 'entra', { grupo: 1 })]);
+  assert.deepEqual(so(g, 'tom').map((i) => i.grau), [0, 1, 0]);
+});

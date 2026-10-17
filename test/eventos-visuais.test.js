@@ -115,3 +115,56 @@ test('vídeo real: caixa que aparece em 1 s vira 1 entrada em 1,0 ± 0,1 s', { s
   assert.equal(e.length, 1);
   assert.ok(Math.abs(e[0].t - 1) <= 0.1, `t=${e[0].t}`);
 });
+
+// ---- revisão final: fundo, digitação falsa e partículas
+test('item visível desde o início que sai: 1 saída, sem fantasma; um item novo no mesmo lugar depois entra', () => {
+  const ev = detectar(cena(70, PRETO, (i, p) => { if (i < 15) ret(p, 20, 10, 6, 6, AZUL); if (i >= 40) ret(p, 20, 10, 6, 6, BRANCO); }));
+  assert.deepEqual(ev.filter((e) => e.tipo !== 'move').map((e) => e.tipo), ['sai', 'entra']);
+  assert.ok(Math.abs(doTipo(ev, 'entra')[0].t - 40 / FPS) <= 1 / FPS + 1e-9);
+});
+
+test('wipe para uma cena branca: itens escuros que entram depois são detectados e a saída é saída', () => {
+  const ev = detectar(cena(120, PRETO, (i, p) => {
+    const k = Math.min(C, Math.max(0, (i - 10) * 6));
+    ret(p, 0, 0, k, L, BRANCO);
+    for (let n = 0; n < 3; n++) if (i >= 40 + n * 12 && !(n === 2 && i >= 95)) ret(p, 6 + n * 14, 10, 6, 6, [20, 20, 30]);
+  }));
+  const depois = ev.filter((e) => e.t >= 39 / FPS && e.tipo !== 'move');
+  assert.deepEqual(depois.map((e) => e.tipo), ['entra', 'entra', 'entra', 'sai']);
+  assert.ok(ev.every((e) => !(e.tipo === 'entra' && e.area > 0.35)), 'o wipe não é um item');
+});
+
+test('fade lento do fundo inteiro não vira um item gigante e não cega a cena', () => {
+  const ev = detectar(cena(90, PRETO, (i, p) => {
+    const k = Math.min(1, i / 30);
+    ret(p, 0, 0, C, L, [255, 255, 255].map((c) => Math.round(c * k)));
+    if (i >= 50) ret(p, 20, 10, 6, 6, [200, 30, 30]);
+  }));
+  assert.ok(ev.every((e) => !(e.tipo === 'entra' && e.area > 0.35)));
+  assert.equal(doTipo(ev, 'entra').filter((e) => e.t >= 49 / FPS).length, 1);
+});
+
+test('item que cresce no lugar (zoom de entrada) é 1 entrada, sem digitação', () => {
+  const ev = detectar(cena(40, PRETO, (i, p) => { if (i >= 5) { const r = Math.min(5, 1 + (i - 5)); ret(p, 24 - r, 13 - r, 2 * r, 2 * r, AZUL); } }));
+  assert.equal(doTipo(ev, 'entra').length, 1);
+  assert.ok(ev.every((e) => !e.digitacao));
+});
+
+test('cards empilhados colados entram como itens normais (escadinha), não digitação', () => {
+  const ev = detectar(cena(60, PRETO, (i, p) => { for (let n = 0; n < 5; n++) if (i >= 5 + n * 6) ret(p, 14, 3 + n * 4, 20, 4, AZUL); }));
+  const e = doTipo(ev, 'entra');
+  assert.equal(e.length, 5);
+  assert.ok(e.every((x) => !x.digitacao));
+});
+
+test('pontinhos de 2 células andando suavemente (partículas) não geram entradas', () => {
+  const ev = detectar(cena(150, PRETO, (i, p) => {
+    for (let n = 0; n < 25; n++) { const x = (n * 7 + Math.floor(i / 3)) % 20; const y = (n * 3) % 15; ret(p, x, y, 2, 1, BRANCO); }
+  }));
+  assert.equal(doTipo(ev, 'entra').length, 0);
+});
+
+test('mancha que vive só 4 quadros não é item', () => {
+  const ev = detectar(cena(40, PRETO, (i, p) => { if (i >= 10 && i < 14) ret(p, 20, 10, 3, 3, AZUL); }));
+  assert.equal(doTipo(ev, 'entra').length, 0);
+});

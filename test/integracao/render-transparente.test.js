@@ -23,3 +23,13 @@ test('render transparente gera .mov com alfa e prévia WebM com alfa', { skip: !
   assert.match(sondaStream(saida), /pix_fmt=rgba/);
   assert.match(sondaStream(saidaPreview), /alpha_mode=1/i);
 });
+
+test('fundoPreto: página transparente sai sobre preto (não sobre o branco padrão)', { skip: !process.env.INTEGRACAO, timeout: 120_000 }, async () => {
+  const { FFMPEG } = await import('../../lib/ffmpeg.js');
+  const pasta = fs.mkdtempSync(path.join(os.tmpdir(), 'render-preto-'));
+  const saida = path.join(pasta, 'p.mp4');
+  await renderizarHtml({ url: 'data:text/html,' + encodeURIComponent(html), largura: 200, altura: 200, fps: 10, duracao: 0.5, saida, fundoPreto: true });
+  // canto (10,10) fica fora do quadrado vermelho: tem que ser preto
+  const px = execFileSync(FFMPEG, ['-v', 'error', '-i', saida, '-vf', 'crop=2:2:10:10', '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-']);
+  assert.ok(px[0] < 30 && px[1] < 30 && px[2] < 30, `canto = ${[...px]}`);
+});
