@@ -292,6 +292,7 @@ label > input, label > select, label > textarea { margin-top: 5px; color: var(--
 h3 { font-size: 13px; color: var(--texto-2); }
 .transcricao { background: #0f1115; border: 1px solid var(--borda); border-radius: 8px; padding: 8px 10px; max-height: 220px; overflow: auto; display: grid; gap: 4px; font-size: 13px; }
 .transcricao .mono { display: inline-block; width: 52px; color: var(--acento-2); }
+.caixa-meu-video { background: rgba(124,92,255,.08); border: 1px solid rgba(124,92,255,.4); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
 .caixa-ideia { background: rgba(255,106,61,.06); border: 1px solid rgba(255,106,61,.3); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
 
 /* ---------- editor v2 ---------- */

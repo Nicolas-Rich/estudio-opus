@@ -215,6 +215,14 @@ function formularioCriacao(m) {
   const fmt = ult.formato || '9:16';
   return `
     <div class="campos">
+      <div class="caixa-meu-video">
+        <div class="linha" style="align-items:center">
+          <b style="flex:1">🎬 Animar por cima do <u>seu vídeo falando</u> (opcional)</b>
+          <label class="btn primario" style="flex:none">⬆ Enviar meu vídeo<input type="file" id="fLocucao" hidden accept="video/*,audio/*"></label>
+        </div>
+        <p class="ajuda" style="margin:0">O estúdio assiste ao seu vídeo, lê o que você fala e escreve sozinho o prompt de uma animação que entra <b>por cima</b> dele, no tempo da sua fala. O MP4 final sai com o seu vídeo + a animação + o seu áudio. (Também aceita só o áudio de uma locução.)</p>
+        <div id="fVideoBaseBox" hidden></div>
+      </div>
       <div class="caixa-ideia">
         <label>💡 Sua ideia (em poucas palavras)
           <textarea id="fIdeia" rows="2" placeholder="Ex.: meu produto girando em câmera lenta, partículas douradas, texto 'frete grátis', final com o logo"></textarea>
@@ -277,11 +285,6 @@ function formularioCriacao(m) {
           <input type="text" id="fNome" placeholder="${esc(m ? 'Modelo @' + m.autor : 'Novo vídeo')}">
         </label>
       </div>
-      <label>Seu vídeo falando ou a locução (opcional)
-        <input type="file" id="fLocucao" accept="audio/*,video/*">
-      </label>
-      <div id="fVideoBaseBox" hidden></div>
-      <p class="ajuda" style="margin:-6px 0 0"><b>Vídeo seu falando:</b> o estúdio assiste ao vídeo, lê o que você fala e escreve o prompt de uma animação que entra <b>por cima</b> dele, no tempo da sua fala — o MP4 final sai com o seu vídeo e o seu áudio. <b>Só áudio:</b> a animação nasce sincronizada com a sua locução.</p>
       <button class="btn primario" id="fGerar" style="justify-content:center;padding:12px">✦ Gerar animação com Claude</button>
       <p class="ajuda">Usa o Claude Code instalado neste PC (sua assinatura). A geração leva de 1 a 6 minutos; você pode continuar usando o estúdio enquanto isso.</p>
     </div>`;
@@ -408,7 +411,7 @@ function ligarFormulario(m) {
     const f = e.target.files[0];
     videoBase = null;
     if (f && f.type.startsWith('video/')) analisarVideoBase(f);
-    else caixaVideoBase('');
+    else caixaVideoBase(f ? `<div class="ref-video"><b>🎙 ${esc(f.name)}</b><p class="ajuda" style="margin:0">Locução: a animação vai nascer sincronizada com a sua fala.</p></div>` : '');
   };
 
   // ---------- assistente: ideia → prompt, e sugestão de instruções extras
@@ -529,13 +532,16 @@ function abrirModelo(m) {
   ligarFormulario(m);
 }
 
-$('#btnDoZero').addEventListener('click', () => {
+function abrirCriarDoZero(titulo = 'Criar animação do zero') {
   $('#modal').innerHTML = `<div class="modal-caixa simples"><button class="fechar">×</button>
-    <div class="modal-dir"><h2>Criar animação do zero</h2>${formularioCriacao(null)}</div></div>`;
+    <div class="modal-dir"><h2>${titulo}</h2>${formularioCriacao(null)}</div></div>`;
   $('#modal').hidden = false;
   $('#modal .fechar').onclick = fecharModal;
   ligarFormulario(null);
-});
+}
+$('#btnDoZero').addEventListener('click', () => abrirCriarDoZero());
+// "Animar meu vídeo": abre o formulário já pedindo o vídeo
+$('#btnMeuVideo').addEventListener('click', () => { abrirCriarDoZero('Animação por cima do seu vídeo'); $('#fLocucao').click(); });
 
 // ===================================================================== PROJETOS
 async function carregarProjetos() {
