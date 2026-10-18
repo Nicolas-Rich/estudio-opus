@@ -335,6 +335,14 @@ Efeitos sonoros de estúdio de verdade (cliques, teclado, papel, whooshes, impac
 3. O estúdio descompacta, lê o nome e a descrição de cada som, mede no seu PC se ele é **seco ou suave, brilhante ou grave, macio ou áspero**, e separa arquivos com vários golpes (ex.: "teclas ×20") em **golpes individuais**. O que as regras não classificam, o Claude classifica só pelo nome.
 4. Busque por categoria (Clique, Teclado, Papel, Whoosh, Impacto…), por palavra em português ou inglês, por duração e por **Macio / Áspero**. Clique numa linha para ouvir, use **Espaço** para tocar/parar e **↑ ↓** para passar de um som a outro. Marque ★ nos favoritos.
 
+#### Sonorizar um vídeo (🎬 Sonorizar vídeo)
+
+1. Na aba **🔊 Efeitos**, clique em **🎬 Sonorizar vídeo** e escolha qualquer vídeo da **Mídia** (uma animação do estúdio, um vídeo seu falando, uma cena IA).
+2. O estúdio **analisa o vídeo**: cada item que entra, sai ou se move, os cortes de cena e — se tiver fala — o que você diz (Whisper no seu PC; o Claude lê só o texto e marca as ênfases: preço, número, nome do produto, "agora", chamada final).
+3. Ele **sugere um som da sua biblioteca para cada momento**: cliques para itens pequenos, impactos para itens grandes, whooshes nas saídas e movimentos, tiques na digitação e o tipo de som certo em cada ênfase. Favoritos ★ e sons macios vêm primeiro, e os sons se revezam (nada de "metralhadora"). A densidade segue **Sutil / Equilibrado / Intenso**.
+4. Ajuste na **faixa de efeitos**: **arraste** um bloco para mudar o tempo, **arraste da biblioteca** (ao lado) para adicionar, clique num bloco para **ouvir, mudar o volume, trocar ou remover** (Delete também remove). Dê **play** e os efeitos tocam sincronizados com o vídeo. Tudo salva sozinho.
+5. Clique em **⬇ Exportar MP4**: o vídeo sai com o seu áudio original + os efeitos (que abaixam sozinhos quando você fala), masterizado em −14 LUFS, direto na Mídia como "(com efeitos)". O vídeo original não muda.
+
 > ⚖️ **Licença da Sonniss:** uso comercial livre e sem dar crédito; pode editar e cortar os sons. **Não pode redistribuir** os arquivos (nem originais, nem editados) — por isso cada pessoa baixa o próprio pacote, e os sons ficam só no seu PC (pasta `dados/`).
 
 ---
