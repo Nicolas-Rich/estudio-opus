@@ -168,3 +168,18 @@ test('mancha que vive só 4 quadros não é item', () => {
   const ev = detectar(cena(40, PRETO, (i, p) => { if (i >= 10 && i < 14) ret(p, 20, 10, 3, 3, AZUL); }));
   assert.equal(doTipo(ev, 'entra').length, 0);
 });
+
+test('wipe que cobre um item enquanto outro segue na tela não quebra o detector', () => {
+  const ev = detectar(cena(60, PRETO, (i, p) => {
+    if (i >= 3) ret(p, 2, 10, 4, 4, AZUL);           // item A (à esquerda)
+    if (i >= 3) ret(p, 40, 10, 4, 4, [200, 30, 30]); // item B (à direita)
+    if (i >= 30) ret(p, 0, 0, 20, L, BRANCO);        // painel entrando pela borda, cobrindo A
+  }));
+  assert.ok(Array.isArray(ev));
+  assert.ok(ev.every((e) => !(e.tipo === 'entra' && e.area > 0.35)));
+});
+
+test('a tela inteira mudando quadro a quadro (zoom, fundo animado) não vira uma enxurrada de cortes', () => {
+  const ev = detectar(cena(60, PRETO, (i, p) => { if (i >= 10 && i < 40) ret(p, 0, 0, C, L, [(i * 40) % 256, (i * 70) % 256, 120]); }));
+  assert.ok(doTipo(ev, 'corte').length <= 2, `${doTipo(ev, 'corte').length} cortes`);
+});
