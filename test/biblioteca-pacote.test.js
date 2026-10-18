@@ -112,3 +112,11 @@ test('importar uma pasta copia só os arquivos de áudio', { skip: !WIN, timeout
   assert.ok(!existsSync(path.join(raiz, 'meus sons', 'videos', 'filme.mp4')));
   assert.ok(!existsSync(path.join(raiz, 'meus sons', 'leia.txt')));
 });
+
+test('caminho vazio é recusado (nunca vira a pasta atual)', async () => {
+  const raiz = path.join(os.tmpdir(), 'nunca-criada', 'biblioteca-efeitos');
+  for (const caminho of ['', '   ', undefined]) {
+    await assert.rejects(importarPacote({ caminho, raiz, classificar }), /Escolha um arquivo \.zip ou uma pasta/);
+  }
+  assert.ok(!existsSync(raiz));
+});
