@@ -3642,11 +3642,12 @@ window.addEventListener('hashchange', seguirHash);
 })();
 
 // ===================================================================== EFEITOS (biblioteca de efeitos sonoros)
-const efx = { cats: null, f: { q: '', categoria: '', duracao: '', macio: '', fav: false }, pagina: 0, itens: [], total: 0, sel: -1, audio: new Audio(), espera: null };
+const efx = { modo: 'biblioteca', cats: null, f: { q: '', categoria: '', duracao: '', macio: '', fav: false }, pagina: 0, itens: [], total: 0, sel: -1, audio: new Audio(), espera: null };
 const durFmt = (s) => (s < 1 ? `${Math.round(s * 1000)} ms` : `${s.toFixed(1)} s`);
 const gbFmt = (b) => `${(b / 1024 ** 3).toFixed(1)} GB`;
 
 async function abrirEfeitos() {
+  if (efx.modo === 'sonorizar') return abrirSonorizar();
   try { efx.cats = await api('/api/efeitos/categorias'); } catch (e) { $('#efxCorpo').innerHTML = `<div class="erro-caixa">${esc(e.message)}</div>`; return; }
   if (efx.cats.total) desenharBibliotecaEfx(); else desenharImportarEfx();
 }
@@ -3776,8 +3777,284 @@ function tocarEfx(i) {
   efx.audio.play().catch(() => {});
 }
 document.addEventListener('keydown', (e) => {
-  if (estado.vista !== 'efeitos' || !efx.itens.length || /input|textarea|select/i.test(e.target.tagName)) return;
+  if (estado.vista !== 'efeitos' || efx.modo !== 'biblioteca' || !efx.itens.length || /input|textarea|select/i.test(e.target.tagName)) return;
   if (e.key === ' ') { e.preventDefault(); if (efx.audio.paused) tocarEfx(Math.max(0, efx.sel)); else efx.audio.pause(); }
   else if (e.key === 'ArrowDown') { e.preventDefault(); tocarEfx(Math.min(efx.itens.length - 1, efx.sel + 1)); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); tocarEfx(Math.max(0, efx.sel - 1)); }
 });
+
+// ===================================================================== EFEITOS › SONORIZAR UM VÍDEO
+// Vídeo da Mídia + faixa de efeitos (blocos arrastáveis) + biblioteca ao lado; prévia em Web Audio.
+const son = { s: null, sons: {}, zoom: 1, sel: null, ctx: null, buffers: new Map(), fontes: [], espera: null, bib: { q: '', categoria: '', trocando: false }, bibItens: new Map(), raf: 0 };
+window.__efxPrevia = { agendados: 0 };
+const corCat = (c) => `hsl(${[...String(c)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7)} 62% 58%)`;
+const iconeCat = (c) => efx.cats?.categorias.find((x) => x.id === c)?.icone || '•';
+const tempoFmt = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+
+async function abrirSonorizar() {
+  pararPrevia();
+  const el = $('#efxCorpo');
+  el.innerHTML = '<p class="ajuda">Carregando os vídeos da Mídia…</p>';
+  let lista = [];
+  try { lista = await api('/api/sonorizar/videos'); } catch (e) { el.innerHTML = `<div class="erro-caixa">${esc(e.message)}</div>`; return; }
+  el.innerHTML = lista.length ? `<p class="ajuda">Escolha um vídeo: o estúdio analisa itens, cortes e a sua fala e sugere sons da sua biblioteca.</p>
+    <div class="son-videos">${lista.map((v) => `<button class="son-card" data-nome="${esc(v.nome)}">
+      ${v.thumb ? `<img src="/arquivos/miniaturas/${encodeURIComponent(v.thumb)}" alt="">` : '<div class="son-sem-thumb">🎬</div>'}
+      <b>${esc(v.titulo)}</b><small>${durFmt(v.duracao)}${v.clipes ? ` · ${v.clipes} sons` : ''}</small></button>`).join('')}</div>`
+    : '<p class="ajuda">Nenhum vídeo na Mídia ainda.</p>';
+  $$('.son-card', el).forEach((b) => { b.onclick = () => abrirSonorizacao(b.dataset.nome); });
+}
+
+async function abrirSonorizacao(nome) {
+  const el = $('#efxCorpo');
+  el.innerHTML = '<div class="efx-barra"><i style="width:0%"></i></div><p class="mono" id="sonMsg">Abrindo…</p>';
+  try {
+    const r = await api('/api/sonorizar/abrir', { corpo: { midia: nome } });
+    let s = r.sessao;
+    if (r.job) {
+      const fim = await acompanharJob(r.job.id, (j) => { const m = $('#sonMsg'); if (m && j.ultima) m.textContent = j.ultima; });
+      if (fim.status !== 'ok') throw new Error(fim.erro || 'A análise falhou.');
+      s = await api(`/api/sonorizar/${s.id}`);
+    }
+    if (!efx.cats) efx.cats = await api('/api/efeitos/categorias');
+    desenharSonorizacao(s);
+  } catch (e) {
+    el.innerHTML = `<div class="erro-caixa">${esc(e.message)}</div>
+      <div class="linha"><button class="btn mini" id="sonVoltar">← vídeos</button>${/Importe uma biblioteca/.test(e.message) ? '<button class="btn mini primario" id="sonIrBib">📚 Ir para a biblioteca</button>' : ''}</div>`;
+    $('#sonVoltar').onclick = abrirSonorizar;
+    if ($('#sonIrBib')) $('#sonIrBib').onclick = () => trocarModoEfx('biblioteca');
+  }
+}
+
+function desenharSonorizacao(s) {
+  son.s = s;
+  son.sons = { ...son.sons, ...s.sons };
+  son.sel = null;
+  const titulo = s.midia;
+  $('#efxCorpo').innerHTML = `<div class="son-topo">
+      <button class="btn mini fantasma" id="sonVoltar">← vídeos</button><b class="son-titulo">${esc(titulo)}</b>
+      <div class="chips pequenos" id="sonInt">${[['sutil', 'Sutil'], ['equilibrado', 'Equilibrado'], ['intenso', 'Intenso']].map(([k, v]) => `<button data-int="${k}" class="${s.intensidade === k ? 'ativa' : ''}">${v}</button>`).join('')}</div>
+      <button class="btn mini" id="sonSugerir">↻ Sugerir de novo</button>
+      <label class="son-vol">efeitos <input type="range" id="sonVol" min="0" max="1.5" step="0.05" value="${s.volumeEfeitos}"></label>
+      <button class="btn mini primario" id="sonExportar">⬇ Exportar MP4</button>
+    </div>
+    ${[...(s.avisos || []), ...(s.faltando || []).map((f) => `Sua biblioteca não tem ${f} — importe outra parte da Sonniss.`)].map((a) => `<div class="aviso">${esc(a)}</div>`).join('')}
+    <div class="son-grade">
+      <div class="son-video-box"><video id="sonVideo" src="/arquivos/midia/${encodeURIComponent(s.midia)}" playsinline preload="auto"></video>
+        <div class="son-ctrl"><button class="btn mini" id="sonPlay">▶</button><span class="mono" id="sonTempo">0:00.0</span><span class="mono">/ ${tempoFmt(s.duracao)}</span><span class="mono" id="sonQtd"></span></div></div>
+      <aside class="son-bib"><div class="linha"><input type="search" id="sonBusca" placeholder="buscar som" value="${esc(son.bib.q)}">
+        <select id="sonCat"><option value="">todas</option>${(efx.cats?.categorias || []).filter((c) => c.n).map((c) => `<option value="${c.id}" ${son.bib.categoria === c.id ? 'selected' : ''}>${c.icone} ${esc(c.rotulo)}</option>`).join('')}</select></div>
+        <p class="ajuda" style="margin:0" id="sonBibDica">Arraste um som para a faixa.</p><div id="sonBibLista" class="son-bib-lista"></div></aside>
+    </div>
+    <div class="son-linha"><div class="linha" style="align-items:center"><small class="rotulo-mini" style="flex:none">Faixa de efeitos</small>
+      <span class="zoom-preview" style="flex:none"><button class="btn mini" id="sonMenos">－</button><button class="btn mini" id="sonZoom">1×</button><button class="btn mini" id="sonMais">＋</button></span></div>
+      <div class="son-trilha-caixa" id="sonCaixa"><div class="son-trilha" id="sonTrilha"><div class="son-regua" id="sonRegua"></div><div class="son-faixa" id="sonFaixa"></div><div class="son-agulha" id="sonAgulha"></div></div></div>
+    </div>
+    <div id="sonInspetor"></div>`;
+  $('#sonVoltar').onclick = abrirSonorizar;
+  $$('#sonInt [data-int]').forEach((b) => { b.onclick = () => { s.intensidade = b.dataset.int; $$('#sonInt button').forEach((x) => x.classList.toggle('ativa', x === b)); salvarSon(); }; });
+  $('#sonSugerir').onclick = async () => {
+    if (!confirm('Trocar todos os sons da faixa por novas sugestões?')) return;
+    try { const n = await api(`/api/sonorizar/${s.id}/sugerir`, { corpo: { intensidade: s.intensidade } }); desenharSonorizacao(n); carregarBuffers(); } catch (e) { toast(e.message, 'erro'); }
+  };
+  $('#sonVol').oninput = (e) => { s.volumeEfeitos = +e.target.value; salvarSon(); reagendar(); };
+  $('#sonExportar').onclick = exportarSon;
+  $('#sonMenos').onclick = () => { son.zoom = Math.max(1, son.zoom / 2); desenharFaixa(); };
+  $('#sonMais').onclick = () => { son.zoom = Math.min(8, son.zoom * 2); desenharFaixa(); };
+  $('#sonBusca').oninput = (e) => { clearTimeout(son.espera); son.espera = setTimeout(() => { son.bib.q = e.target.value; carregarBibSon(); }, 250); };
+  $('#sonCat').onchange = (e) => { son.bib.categoria = e.target.value; carregarBibSon(); };
+  const v = $('#sonVideo');
+  $('#sonPlay').onclick = () => (v.paused ? v.play() : v.pause());
+  v.onplay = () => { $('#sonPlay').textContent = '⏸'; garantirCtx().resume(); reagendar(); };
+  v.onpause = () => { $('#sonPlay').textContent = '▶'; pararFontes(); };
+  v.onseeked = () => reagendar();
+  $('#sonRegua').onpointerdown = (e) => { const r = $('#sonTrilha').getBoundingClientRect(); v.currentTime = Math.min(s.duracao, Math.max(0, ((e.clientX - r.left) / r.width) * s.duracao)); };
+  const faixa = $('#sonFaixa');
+  faixa.ondragover = (e) => e.preventDefault();
+  faixa.ondrop = (e) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/efx');
+    const info = son.bibItens.get(id);
+    if (!id || !info) return;
+    const r = $('#sonTrilha').getBoundingClientRect();
+    const t = Math.min(s.duracao, Math.max(0, ((e.clientX - r.left) / r.width) * s.duracao));
+    son.sons[id] = info;
+    const c = { uid: `m${Date.now().toString(36)}`, somId: id, t: Math.round(t * 1000) / 1000, volume: 0.8, papel: 'manual' };
+    s.clipes.push(c);
+    son.sel = c.uid;
+    desenharFaixa(); desenharInspetor(); salvarSon(); carregarBuffers();
+  };
+  desenharFaixa();
+  carregarBibSon();
+  carregarBuffers();
+  cancelAnimationFrame(son.raf);
+  const passo = () => {
+    if (!$('#sonVideo')) return;
+    $('#sonAgulha').style.left = `${(v.currentTime / s.duracao) * 100}%`;
+    $('#sonTempo').textContent = tempoFmt(v.currentTime);
+    son.raf = requestAnimationFrame(passo);
+  };
+  son.raf = requestAnimationFrame(passo);
+}
+
+function desenharFaixa() {
+  const s = son.s;
+  $('#sonTrilha').style.width = `${son.zoom * 100}%`;
+  $('#sonZoom').textContent = `${son.zoom}×`;
+  $('#sonQtd').textContent = ` · ${s.clipes.length} sons`;
+  const passo = s.duracao > 60 ? 10 : s.duracao > 20 ? 5 : 1;
+  let marcas = '';
+  for (let t = 0; t <= s.duracao; t += passo) marcas += `<span style="left:${(t / s.duracao) * 100}%">${t}s</span>`;
+  $('#sonRegua').innerHTML = marcas;
+  $('#sonFaixa').innerHTML = s.clipes.map((c) => {
+    const info = son.sons[c.somId] || { nome: c.somId, categoria: 'outros', duracao: 0.2 };
+    return `<div class="son-bloco ${son.sel === c.uid ? 'sel' : ''}" data-uid="${c.uid}" title="${esc(info.nome)} · ${c.t.toFixed(2)}s"
+      style="left:${(c.t / s.duracao) * 100}%;width:max(6px,${(info.duracao / s.duracao) * 100}%);background:${corCat(info.categoria)}">${iconeCat(info.categoria)}</div>`;
+  }).join('');
+  $$('#sonFaixa .son-bloco').forEach((b) => {
+    b.onpointerdown = (e) => {
+      e.preventDefault();
+      const c = s.clipes.find((x) => x.uid === b.dataset.uid);
+      son.sel = c.uid;
+      $$('#sonFaixa .son-bloco').forEach((x) => x.classList.toggle('sel', x === b));
+      desenharInspetor();
+      const largura = $('#sonTrilha').getBoundingClientRect().width;
+      const x0 = e.clientX, t0 = c.t;
+      try { b.setPointerCapture(e.pointerId); } catch {}
+      b.onpointermove = (m) => {
+        c.t = Math.round(Math.min(s.duracao, Math.max(0, t0 + ((m.clientX - x0) / largura) * s.duracao)) * 1000) / 1000;
+        b.style.left = `${(c.t / s.duracao) * 100}%`;
+      };
+      b.onpointerup = () => { b.onpointermove = null; if (c.t !== t0) { salvarSon(); reagendar(); desenharInspetor(); } };
+    };
+  });
+}
+
+function desenharInspetor() {
+  const s = son.s;
+  const c = s.clipes.find((x) => x.uid === son.sel);
+  const box = $('#sonInspetor');
+  if (!c) { box.innerHTML = ''; return; }
+  const info = son.sons[c.somId] || { nome: c.somId, categoria: '' };
+  box.innerHTML = `<div class="son-insp"><b>${iconeCat(info.categoria)} ${esc(info.nome)}</b><span class="mono">${c.t.toFixed(2)} s</span>
+    <button class="btn mini" id="sonOuvir">▶ ouvir</button>
+    <label class="son-vol">volume <input type="range" id="sonVolClipe" min="0" max="1.5" step="0.05" value="${c.volume}"></label>
+    <button class="btn mini" id="sonTrocar">⇄ Trocar</button><button class="btn mini perigo" id="sonRemover">Remover</button></div>`;
+  $('#sonOuvir').onclick = () => tocarUm(c.somId, c.volume);
+  $('#sonVolClipe').oninput = (e) => { c.volume = +e.target.value; salvarSon(); };
+  $('#sonTrocar').onclick = () => { son.bib.trocando = true; son.bib.categoria = info.categoria; $('#sonCat').value = info.categoria; carregarBibSon(); };
+  $('#sonRemover').onclick = removerSelecionado;
+}
+
+function removerSelecionado() {
+  const s = son.s;
+  s.clipes = s.clipes.filter((x) => x.uid !== son.sel);
+  son.sel = null;
+  desenharFaixa(); desenharInspetor(); salvarSon(); reagendar();
+}
+
+async function carregarBibSon() {
+  const q = new URLSearchParams({ q: son.bib.q, categoria: son.bib.categoria });
+  let r;
+  try { r = await api(`/api/efeitos/sons?${q}`); } catch { return; }
+  for (const x of r.itens) son.bibItens.set(x.id, { nome: x.nome, categoria: x.categoria, duracao: x.duracao, onda: x.onda, fatia: x.fatia });
+  $('#sonBibDica').textContent = son.bib.trocando ? 'Escolha o som que vai substituir o selecionado.' : 'Arraste um som para a faixa.';
+  $('#sonBibLista').innerHTML = r.itens.map((x) => `<div class="son-som" draggable="true" data-id="${x.id}">
+    <button class="son-mini-play" data-ouvir="${x.id}" title="Ouvir">▶</button><span>${iconeCat(x.categoria)} ${esc(x.nome)}<small>${durFmt(x.duracao)}</small></span>
+    ${son.bib.trocando ? `<button class="btn mini" data-usar="${x.id}">usar este</button>` : ''}</div>`).join('') || '<p class="ajuda">Nada encontrado.</p>';
+  $$('#sonBibLista .son-som').forEach((el) => { el.ondragstart = (e) => e.dataTransfer.setData('text/efx', el.dataset.id); });
+  $$('#sonBibLista [data-ouvir]').forEach((b) => { b.onclick = () => tocarUm(b.dataset.ouvir, 1); });
+  $$('#sonBibLista [data-usar]').forEach((b) => {
+    b.onclick = () => {
+      const c = son.s.clipes.find((x) => x.uid === son.sel);
+      if (!c) return;
+      c.somId = b.dataset.usar;
+      son.sons[c.somId] = son.bibItens.get(c.somId);
+      son.bib.trocando = false;
+      desenharFaixa(); desenharInspetor(); carregarBibSon(); salvarSon(); carregarBuffers();
+    };
+  });
+}
+
+function salvarSon() {
+  clearTimeout(son.salvarEspera);
+  const s = son.s;
+  son.salvarEspera = setTimeout(() => {
+    api(`/api/sonorizar/${s.id}`, { method: 'PATCH', corpo: { clipes: s.clipes, intensidade: s.intensidade, volumeEfeitos: s.volumeEfeitos } }).catch((e) => toast(e.message, 'erro'));
+  }, 600);
+}
+
+async function exportarSon() {
+  const b = $('#sonExportar');
+  b.disabled = true;
+  try {
+    clearTimeout(son.salvarEspera);
+    await api(`/api/sonorizar/${son.s.id}`, { method: 'PATCH', corpo: { clipes: son.s.clipes, intensidade: son.s.intensidade, volumeEfeitos: son.s.volumeEfeitos } });
+    const r = await api(`/api/sonorizar/${son.s.id}/exportar`, { corpo: {} });
+    const fim = await acompanharJob(r.job.id, (j) => { if (j.ultima) b.textContent = j.ultima.slice(0, 40); });
+    if (fim.status !== 'ok') throw new Error(fim.erro || 'A exportação falhou.');
+    toast(fim.ultima, 'ok');
+    carregarMidia?.();
+  } catch (e) { toast(e.message, 'erro'); }
+  b.disabled = false;
+  b.textContent = '⬇ Exportar MP4';
+}
+
+// ---------- prévia em Web Audio: os efeitos tocam sincronizados por cima do vídeo
+const garantirCtx = () => (son.ctx ||= new AudioContext());
+async function bufferDe(id) {
+  if (!son.buffers.has(id)) {
+    son.buffers.set(id, fetch(`/api/efeitos/ouvir/${id}`).then((r) => r.arrayBuffer()).then((a) => garantirCtx().decodeAudioData(a)).catch(() => null));
+  }
+  return son.buffers.get(id);
+}
+const carregarBuffers = () => Promise.all([...new Set(son.s.clipes.map((c) => c.somId))].map(bufferDe));
+function pararFontes() { for (const f of son.fontes) { try { f.stop(); } catch {} } son.fontes = []; }
+function pararPrevia() { pararFontes(); cancelAnimationFrame(son.raf); }
+async function reagendar() {
+  // só a chamada mais recente agenda (play e seeked chegam juntos; sem isso cada efeito tocava duas vezes)
+  const vez = (son.vez = (son.vez || 0) + 1);
+  pararFontes();
+  const v = $('#sonVideo');
+  if (!v || v.paused) return;
+  const ctx = garantirCtx();
+  const agora = ctx.currentTime, t0 = v.currentTime;
+  for (const c of son.s.clipes) {
+    if (c.t < t0 - 0.01) continue;
+    const buf = await bufferDe(c.somId);
+    if (vez !== son.vez) return;
+    if (!buf || v.paused) continue;
+    const fonte = ctx.createBufferSource();
+    const ganho = ctx.createGain();
+    fonte.buffer = buf;
+    ganho.gain.value = c.volume * son.s.volumeEfeitos;
+    fonte.connect(ganho).connect(ctx.destination);
+    fonte.start(agora + Math.max(0, c.t - t0));
+    son.fontes.push(fonte);
+    window.__efxPrevia.agendados++;
+  }
+}
+async function tocarUm(id, volume) {
+  const buf = await bufferDe(id);
+  if (!buf) return;
+  const ctx = garantirCtx();
+  await ctx.resume();
+  const fonte = ctx.createBufferSource();
+  const ganho = ctx.createGain();
+  fonte.buffer = buf;
+  ganho.gain.value = volume;
+  fonte.connect(ganho).connect(ctx.destination);
+  fonte.start();
+}
+document.addEventListener('keydown', (e) => {
+  if (estado.vista !== 'efeitos' || efx.modo !== 'sonorizar' || !$('#sonVideo') || /input|textarea|select/i.test(e.target.tagName)) return;
+  if (e.key === 'Delete' && son.sel) { e.preventDefault(); removerSelecionado(); }
+  else if (e.key === ' ') { e.preventDefault(); const v = $('#sonVideo'); v.paused ? v.play() : v.pause(); }
+});
+
+function trocarModoEfx(modo) {
+  efx.modo = modo;
+  $$('#efxModos [data-modo]').forEach((b) => b.classList.toggle('ativa', b.dataset.modo === modo));
+  if (modo === 'sonorizar') abrirSonorizar(); else { pararPrevia(); abrirEfeitos(); }
+}
+$$('#efxModos [data-modo]').forEach((b) => { b.onclick = () => trocarModoEfx(b.dataset.modo); });

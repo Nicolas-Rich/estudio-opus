@@ -641,3 +641,35 @@ body.arrastando-midia .tl-clipes, body.arrastando-midia .tl-musica, body.arrasta
 .efx-estrela { background: none; border: 0; font-size: 17px; color: #3c4250; cursor: pointer; }
 .efx-estrela.ativa { color: #ffc84a; }
 @media (max-width: 800px) { .efx-grade { grid-template-columns: 1fr; } .efx-lado { position: static; } }
+
+/* ---------- aba Efeitos › sonorizar vídeo */
+.son-videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.son-card { display: grid; gap: 4px; text-align: left; background: #15181e; border: 1px solid var(--borda); border-radius: 10px; padding: 8px; color: var(--texto); cursor: pointer; }
+.son-card:hover { border-color: var(--acento); }
+.son-card img, .son-sem-thumb { width: 100%; aspect-ratio: 16/10; object-fit: cover; border-radius: 6px; background: #000; display: grid; place-items: center; font-size: 26px; }
+.son-card small { color: var(--texto-3); }
+.son-topo { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.son-titulo { flex: 1; min-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.son-vol { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--texto-3); }
+.son-grade { display: grid; grid-template-columns: 1fr 300px; gap: 12px; }
+.son-video-box { background: #000; border-radius: 10px; overflow: hidden; display: grid; }
+.son-video-box video { width: 100%; max-height: 46vh; background: #000; }
+.son-ctrl { display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: #111; }
+.son-bib { display: grid; gap: 6px; align-content: start; max-height: 52vh; }
+.son-bib-lista { display: grid; gap: 2px; overflow: auto; max-height: 44vh; }
+.son-som { display: flex; gap: 6px; align-items: center; padding: 4px 6px; border-radius: 6px; cursor: grab; font-size: 12.5px; }
+.son-som:hover { background: #1b1e25; }
+.son-som span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.son-som small { color: var(--texto-3); margin-left: 6px; }
+.son-mini-play { background: none; border: 0; color: var(--acento-2); cursor: pointer; }
+.son-linha { margin-top: 10px; display: grid; gap: 6px; }
+.son-trilha-caixa { overflow-x: auto; border: 1px solid var(--borda); border-radius: 8px; background: #0f1115; }
+.son-trilha { position: relative; height: 74px; min-width: 100%; }
+.son-regua { position: absolute; inset: 0 0 auto 0; height: 18px; border-bottom: 1px solid var(--borda); cursor: pointer; }
+.son-regua span { position: absolute; top: 2px; font-size: 10px; color: var(--texto-3); transform: translateX(2px); }
+.son-faixa { position: absolute; left: 0; right: 0; top: 22px; bottom: 6px; }
+.son-bloco { position: absolute; top: 6px; height: 34px; border-radius: 5px; font-size: 13px; display: grid; place-items: center; cursor: grab; color: #111; box-shadow: 0 1px 3px #0008; overflow: hidden; }
+.son-bloco.sel { outline: 2px solid #fff; z-index: 2; }
+.son-agulha { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--acento); pointer-events: none; }
+.son-insp { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--borda); border-radius: 8px; }
+@media (max-width: 900px) { .son-grade { grid-template-columns: 1fr; } }
