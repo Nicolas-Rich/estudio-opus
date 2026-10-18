@@ -326,6 +326,17 @@ Gera vídeo com **fala em português, som ambiente e música numa geração só*
 
 > 💡 Sem placa compatível? Teste no Space oficial da MiniMax no Hugging Face (grátis, 2–5 min de GPU por dia; use 544x960 *fast*, 5 s, 6 passos, Upsample desligado). **Licença:** uso comercial sem royalties no Brasil, mas o anúncio precisa de aviso visível de que foi gerado por IA, e não pode usar rosto ou voz de outra pessoa sem consentimento.
 
+### 5.10 Biblioteca de efeitos (aba 🔊 Efeitos, sons reais da Sonniss)
+
+Efeitos sonoros de estúdio de verdade (cliques, teclado, papel, whooshes, impactos, ambientes…) guardados no seu PC, para buscar, ouvir e favoritar.
+
+1. Baixe a biblioteca **grátis** da Sonniss em **sonniss.com/gameaudiogdc**. O pacote de cada ano vem em partes de ~2,6 GB (.zip); comece pela parte 1 e deixe o arquivo na pasta **Downloads**.
+2. Abra a aba **🔊 Efeitos**: o .zip aparece na lista. Clique em **Importar** (com "apagar o .zip depois" marcado, para liberar espaço). Também dá para importar uma **pasta** de sons que você já tenha.
+3. O estúdio descompacta, lê o nome e a descrição de cada som, mede no seu PC se ele é **seco ou suave, brilhante ou grave, macio ou áspero**, e separa arquivos com vários golpes (ex.: "teclas ×20") em **golpes individuais**. O que as regras não classificam, o Claude classifica só pelo nome.
+4. Busque por categoria (Clique, Teclado, Papel, Whoosh, Impacto…), por palavra em português ou inglês, por duração e por **Macio / Áspero**. Clique numa linha para ouvir, use **Espaço** para tocar/parar e **↑ ↓** para passar de um som a outro. Marque ★ nos favoritos.
+
+> ⚖️ **Licença da Sonniss:** uso comercial livre e sem dar crédito; pode editar e cortar os sons. **Não pode redistribuir** os arquivos (nem originais, nem editados) — por isso cada pessoa baixa o próprio pacote, e os sons ficam só no seu PC (pasta `dados/`).
+
 ---
 
 ## Módulo 6 — Renderizar o MP4
@@ -483,6 +494,7 @@ Duplique o vídeo no Editor e troque só o **primeiro texto** (o gancho) ou o **
 ## Módulo 11 — Direitos, licenças e boas práticas
 
 - **Sons do CapCut:** a licença só vale dentro do próprio CapCut. Se quiser usá-los, exporte do estúdio sem efeitos e finalize no CapCut com os sons marcados para uso comercial.
+- **Biblioteca Sonniss (aba Efeitos):** uso comercial livre e sem crédito; **não redistribua os arquivos de som**. Use-os dentro dos seus vídeos à vontade.
 - **Música:** use trilhas royalty-free ou com licença comercial (Pixabay Music, YouTube Audio Library, bibliotecas pagas).
 - **Vozes:** confira os termos do seu plano ElevenLabs para uso comercial. As vozes Piper têm licenças individuais.
 - **Modelos de prompt:** são inspirações publicadas por criadores. Dê crédito quando fizer sentido, e o resultado final deve ser **seu**.
