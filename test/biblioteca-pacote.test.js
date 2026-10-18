@@ -75,3 +75,40 @@ test('caminhos recusados: dentro da biblioteca e zip fora de Downloads', { skip:
   await fs.writeFile(fora, 'x');
   await assert.rejects(importarPacote({ caminho: fora, raiz, pastaZips: downloads, classificar }), /pasta Downloads/);
 });
+
+// ---- revisão final
+test('zip sem nenhum áudio é recusado e não é apagado', { skip: !WIN, timeout: 60_000 }, async () => {
+  const { base, raiz, downloads } = await ambiente();
+  const docs = path.join(base, 'docs');
+  await fs.mkdir(docs);
+  await fs.writeFile(path.join(docs, 'extrato.pdf'), 'pdf');
+  const zip = path.join(downloads, 'extratos.zip');
+  execFileSync(BSDTAR, ['-a', '-cf', zip, '-C', docs, '.']);
+  await assert.rejects(importarPacote({ caminho: zip, raiz, pastaZips: downloads, classificar }), /Nenhum som encontrado nesse pacote/);
+  assert.ok(existsSync(zip), 'o zip continua na pasta Downloads');
+  assert.equal((await lerCatalogo(raiz)).pacotes.length, 0);
+  assert.ok(!existsSync(path.join(raiz, 'extratos')));
+});
+
+test('catálogo ilegível: importação recusada sem sobrescrever o catálogo', { skip: !WIN, timeout: 60_000 }, async () => {
+  const { raiz, downloads, zipar } = await ambiente();
+  await fs.mkdir(raiz, { recursive: true });
+  const quebrado = '{"versao":1,"pacotes":[{"id":"velho"}],"so';
+  await fs.writeFile(path.join(raiz, 'catalogo.json'), quebrado);
+  await assert.rejects(importarPacote({ caminho: zipar('novo.zip'), raiz, pastaZips: downloads, classificar }), /catálogo/i);
+  assert.equal(await fs.readFile(path.join(raiz, 'catalogo.json'), 'utf8'), quebrado);
+});
+
+test('importar uma pasta copia só os arquivos de áudio', { skip: !WIN, timeout: 60_000 }, async () => {
+  const { base, raiz, downloads } = await ambiente();
+  const pasta = path.join(base, 'meus sons');
+  await fs.mkdir(path.join(pasta, 'videos'), { recursive: true });
+  await gravarWav(mono(0.3, (x) => clique(x, 0.05)), path.join(pasta, 'click.wav'));
+  await fs.writeFile(path.join(pasta, 'videos', 'filme.mp4'), Buffer.alloc(1024 * 1024));
+  await fs.writeFile(path.join(pasta, 'leia.txt'), 'x');
+  const r = await importarPacote({ caminho: pasta, raiz, pastaZips: downloads, classificar });
+  assert.equal(r.arquivos, 1);
+  assert.ok(existsSync(path.join(raiz, 'meus sons', 'click.wav')));
+  assert.ok(!existsSync(path.join(raiz, 'meus sons', 'videos', 'filme.mp4')));
+  assert.ok(!existsSync(path.join(raiz, 'meus sons', 'leia.txt')));
+});

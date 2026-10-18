@@ -49,3 +49,12 @@ test('Claude classifica o resto em lotes de 150; resposta inválida vira "outros
   await classificarComClaude(muitos, { perguntar: async () => { chamadas++; return { texto: '[]' }; } });
   assert.equal(chamadas, 3);
 });
+
+test('cada lote do Claude tem timeout de 3 min e avisa "lote k de N"', async () => {
+  const vistos = [];
+  const avisos = [];
+  const itens = Array.from({ length: 310 }, (_, k) => ({ id: `i${k}`, nome: `n${k}`, descricao: '' }));
+  await classificarComClaude(itens, { perguntar: async (o) => { vistos.push(o.timeoutMs); return { texto: '[]' }; }, aoLote: (k, n) => avisos.push(`${k}/${n}`) });
+  assert.deepEqual(vistos, [180_000, 180_000, 180_000]);
+  assert.deepEqual(avisos, ['1/3', '2/3', '3/3']);
+});

@@ -54,3 +54,15 @@ test('macio deriva da aspereza', () => {
   assert.equal(macioDe(0.3), 0);
   assert.ok(Math.abs(macioDe(0.175) - 0.5) < 1e-9);
 });
+
+test('estalos fracos (−40 dB do pico) não viram golpes', () => {
+  const x = tresCliques(3);
+  for (const t of [1.5, 1.8, 2.1, 2.4, 2.7]) ruido(x, t, 0.005, 0.008);
+  assert.equal(fatiar(x, SR).length, 3);
+});
+
+test('no máximo 64 golpes por arquivo', () => {
+  const x = vazio(52);
+  for (let k = 0; k < 100; k++) ruido(x, 0.2 + k * 0.5, 0.005);
+  assert.equal(fatiar(x, SR).length, 64);
+});

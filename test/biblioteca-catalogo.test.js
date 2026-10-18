@@ -69,3 +69,25 @@ test('paginação e contagem por categoria', () => {
   assert.deepEqual(p.itens.map((s) => s.id), buscar(SONS, {}).itens.slice(2, 4).map((s) => s.id));
   assert.deepEqual(contarCategorias(SONS), { clique: 3, papel: 1, whoosh: 1 });
 });
+
+// ---- revisão final
+test('arquivo num caminho com mais de 260 caracteres é indexado (não vira "pulado")', { skip: process.platform !== 'win32', timeout: 60_000 }, async () => {
+  const raiz = await fs.mkdtemp(path.join(os.tmpdir(), 'longo-'));
+  let pasta = path.join(raiz, 'pacote');
+  while (pasta.length < 230) pasta = path.join(pasta, 'Sonniss.com GDC 2024 Game Audio Bundle Part 1');
+  await fs.mkdir(pasta, { recursive: true });
+  const arq = path.join(pasta, 'UIClick_Soft Rounded Plastic Button Press Close Mic_SONNISS_GDC2024.wav');
+  assert.ok(arq.length > 260, `caminho de ${arq.length}`);
+  await gravarWav(mono(0.2, (x) => clique(x, 0.05)), arq);
+  const r = await indexarPacote({ raiz, pasta: path.join(raiz, 'pacote'), pacote: 'pacote' });
+  assert.equal(r.pulados, 0);
+  assert.equal(r.arquivos, 1);
+});
+
+test('catálogo: gravação atômica; arquivo ilegível dá erro em vez de biblioteca vazia', async () => {
+  const raiz = await fs.mkdtemp(path.join(os.tmpdir(), 'cat-'));
+  await gravarCatalogo(raiz, { versao: 1, pacotes: [{ id: 'a' }], sons: [] });
+  assert.deepEqual((await fs.readdir(raiz)).sort(), ['catalogo.json']);
+  await fs.writeFile(path.join(raiz, 'catalogo.json'), '{"versao":1,"pacotes":[{"id":"a"}],"so');
+  await assert.rejects(lerCatalogo(raiz), /catálogo/i);
+});

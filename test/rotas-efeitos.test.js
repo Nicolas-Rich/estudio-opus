@@ -14,7 +14,9 @@ const gravarJson = (a, v) => fs.writeFile(a, JSON.stringify(v));
 
 test('ouvir: arquivo inteiro e golpe (fatia recortada no cache) respondem com áudio', { timeout: 60_000 }, async () => {
   const DADOS = await fs.mkdtemp(path.join(os.tmpdir(), 'rotas-efx-'));
-  const raiz = path.join(DADOS, 'biblioteca-sfx');
+  // pacotes ficam numa pasta própria, separada da 'Minha biblioteca' da aba Som (dados/biblioteca-sfx)
+  const raiz = path.join(DADOS, 'biblioteca-efeitos');
+  const sfx = path.join(DADOS, 'biblioteca-sfx');
   const pasta = path.join(raiz, 'pac');
   await fs.mkdir(pasta, { recursive: true });
   const x = new Float32Array(1.4 * SR);
@@ -24,7 +26,7 @@ test('ouvir: arquivo inteiro e golpe (fatia recortada no cache) respondem com á
   await gravarCatalogo(raiz, { versao: 1, pacotes: [{ id: 'pac' }], sons: r.sons });
   const app = express();
   app.use(express.json());
-  registrarRotasEfeitos(app, { DADOS, PASTAS: { sfx: raiz }, criarJob: () => ({}), msgJob: () => {}, jobPublico: (j) => j, lerJson, gravarJson });
+  registrarRotasEfeitos(app, { DADOS, PASTAS: { sfx }, criarJob: () => ({}), msgJob: () => {}, jobPublico: (j) => j, lerJson, gravarJson });
   const srv = app.listen(0);
   const base = `http://127.0.0.1:${srv.address().port}`;
   try {
@@ -36,6 +38,7 @@ test('ouvir: arquivo inteiro e golpe (fatia recortada no cache) respondem com á
       assert.match(res.headers.get('content-type'), /audio/);
     }
     assert.equal((await fetch(`${base}/api/efeitos/ouvir/naoexiste`)).status, 404);
+    assert.deepEqual(await fs.readdir(sfx).catch(() => []), [], 'nada vai para a pasta da Minha biblioteca');
   } finally {
     srv.close();
   }
