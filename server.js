@@ -19,6 +19,7 @@ import { analisarVideo } from './lib/analise-video.js';
 import { comporSobreVideo, sondarVideo } from './lib/sobre-video.js';
 import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 import { registrarRotasKie } from './lib/rotas-kie.js';
+import { registrarRotasEfeitos } from './lib/rotas-efeitos.js';
 import { registrarRotasGerador } from './lib/rotas-gerador.js';
 import { consertarHtml } from './lib/checar-html.js';
 
@@ -722,6 +723,7 @@ audioHooks = registrarRotasAudio(app, {
 });
 
 registrarRotasKie(app, { DADOS, PASTAS, criarJob, msgJob, jobPublico, lerJson, gravarJson, registrarMidia });
+registrarRotasEfeitos(app, { DADOS, PASTAS, criarJob, msgJob, jobPublico, lerJson, gravarJson });
 registrarRotasGerador(app, { DADOS, PASTAS, criarJob, msgJob, lerJson, gravarJson, registrarMidia });
 
 // ---- jobs
