@@ -76,6 +76,7 @@ function irPara(vista) {
   if (vista === 'projetos' && !estado.projetoAberto) carregarProjetos();
   if (vista === 'voz') abrirEstudioVoz();
   if (vista === 'kie') abrirKie();
+  if (vista === 'efeitos') abrirEfeitos();
   if (vista === 'gerador') abrirGerador();
   if (vista === 'editor') { carregarMidia().then(() => { ajustarPalco(); mostrarQuadro(); }); ajustarPalco(); }
   history.replaceState(null, '', `#${vista}${vista === 'projetos' && estado.projetoAberto ? '/' + estado.projetoAberto : ''}`);
@@ -3630,7 +3631,7 @@ async function carregarVideosGerador() {
 function seguirHash() {
   const [vista, id] = location.hash.slice(1).split('/');
   if (vista === 'projetos' && id) abrirProjeto(id);
-  else if (['modelos', 'projetos', 'voz', 'kie', 'gerador', 'editor'].includes(vista)) irPara(vista);
+  else if (['modelos', 'projetos', 'voz', 'kie', 'efeitos', 'gerador', 'editor'].includes(vista)) irPara(vista);
 }
 window.addEventListener('hashchange', seguirHash);
 
@@ -3639,3 +3640,144 @@ window.addEventListener('hashchange', seguirHash);
   carregarProjetos();
   seguirHash();
 })();
+
+// ===================================================================== EFEITOS (biblioteca de efeitos sonoros)
+const efx = { cats: null, f: { q: '', categoria: '', duracao: '', macio: '', fav: false }, pagina: 0, itens: [], total: 0, sel: -1, audio: new Audio(), espera: null };
+const durFmt = (s) => (s < 1 ? `${Math.round(s * 1000)} ms` : `${s.toFixed(1)} s`);
+const gbFmt = (b) => `${(b / 1024 ** 3).toFixed(1)} GB`;
+
+async function abrirEfeitos() {
+  try { efx.cats = await api('/api/efeitos/categorias'); } catch (e) { $('#efxCorpo').innerHTML = `<div class="erro-caixa">${esc(e.message)}</div>`; return; }
+  if (efx.cats.total) desenharBibliotecaEfx(); else desenharImportarEfx();
+}
+
+async function desenharImportarEfx(comVoltar = false) {
+  const el = $('#efxCorpo');
+  el.innerHTML = '<p class="ajuda">Procurando pacotes na pasta Downloads…</p>';
+  let z = { zips: [], livre: 0 };
+  try { z = await api('/api/efeitos/zips'); } catch {}
+  el.innerHTML = `<div class="efx-importar">
+    ${comVoltar ? '<button class="btn mini fantasma" id="efxVoltar" style="justify-self:start">← voltar à biblioteca</button>' : ''}
+    <div class="efx-cartao">
+      <h3>Biblioteca grátis da Sonniss (GDC)</h3>
+      <p>Pacotes enormes de efeitos de estúdio, <b>uso comercial livre, sem dar crédito</b>; só não pode <b>redistribuir os sons</b>.
+      Baixe em <a href="https://sonniss.com/gameaudiogdc" target="_blank" rel="noopener">sonniss.com/gameaudiogdc</a> (uma parte de cada vez, ~2,6 GB cada) e deixe o .zip na pasta Downloads.</p>
+      <p class="ajuda" style="margin:0">Espaço livre: ${gbFmt(z.livre)} · o pacote descompactado ocupa mais ou menos o tamanho do .zip.</p>
+    </div>
+    <h3 style="margin:0">Pacotes na pasta Downloads</h3>
+    ${(() => {
+      // só o que parece pacote de áudio aparece de cara; o resto da pasta Downloads fica recolhido
+      const ehAudio = (x) => x.sonniss || /sfx|sound|audio|efeito|foley/i.test(x.nome);
+      const linha = (x) => `<div class="efx-zip"><b>${esc(x.nome)}</b> ${x.sonniss ? '<span class="tag">Sonniss</span>' : ''}<span class="mono">${gbFmt(x.tamanho)}</span>
+        <button class="btn mini primario" data-importar="${esc(x.caminho)}">Importar</button></div>`;
+      const audio = z.zips.filter(ehAudio), outros = z.zips.filter((x) => !ehAudio(x));
+      return (audio.length ? `<div class="efx-zips">${audio.map(linha).join('')}</div>`
+        : '<p class="ajuda" style="margin:0">Nenhum pacote de efeitos na pasta Downloads ainda (baixe a parte 1 da Sonniss).</p>')
+        + (outros.length ? `<details><summary class="ajuda">mostrar outros .zip da pasta Downloads (${outros.length})</summary><div class="efx-zips">${outros.map(linha).join('')}</div></details>` : '');
+    })()}
+    <label class="check"><input type="checkbox" id="efxApagar" checked> apagar o .zip depois de importar (libera espaço)</label>
+    <div class="linha" style="align-items:end"><label>ou importar uma pasta<input type="text" id="efxPasta" placeholder="C:\pasta\com\sons"></label>
+      <button class="btn mini" id="efxImportarPasta" style="flex:none">Importar pasta</button></div>
+    <div id="efxProgresso"></div>
+  </div>`;
+  if ($('#efxVoltar')) $('#efxVoltar').onclick = desenharBibliotecaEfx;
+  $$('[data-importar]', el).forEach((b) => { b.onclick = () => importarEfx(b.dataset.importar); });
+  $('#efxImportarPasta').onclick = () => { const v = $('#efxPasta').value.trim(); if (v) importarEfx(v); };
+}
+
+async function importarEfx(caminho) {
+  const box = $('#efxProgresso');
+  $$('#efxCorpo button').forEach((b) => { b.disabled = true; });
+  box.innerHTML = '<div class="efx-barra"><i style="width:0%"></i></div><p class="mono" id="efxMsg">Começando…</p>';
+  try {
+    const r = await api('/api/efeitos/importar', { corpo: { caminho, apagarZip: $('#efxApagar')?.checked !== false } });
+    const fim = await acompanharJob(r.job.id, (j) => {
+      const i = $('#efxProgresso i'); if (i) i.style.width = Math.round((j.progresso || 0) * 100) + '%';
+      const m = $('#efxMsg'); if (m && j.ultima) m.textContent = j.ultima;
+    });
+    if (fim.status !== 'ok') throw new Error(fim.erro || 'A importação falhou.');
+    toast(fim.ultima, 'ok');
+    abrirEfeitos();
+  } catch (e) {
+    box.innerHTML = `<div class="erro-caixa">${esc(e.message)}</div>`;
+    $$('#efxCorpo button').forEach((b) => { b.disabled = false; });
+  }
+}
+
+function desenharBibliotecaEfx() {
+  const c = efx.cats;
+  const f = efx.f;
+  $('#efxCorpo').innerHTML = `<div class="efx-grade">
+    <aside class="efx-lado">
+      <input type="search" id="efxBusca" placeholder="Buscar (ex.: click metal, whoosh, papel)" value="${esc(f.q)}">
+      <div class="efx-cats">
+        <button data-cat="" class="${f.categoria ? '' : 'ativa'}">Todas <small>${c.total}</small></button>
+        ${c.categorias.filter((x) => x.n).map((x) => `<button data-cat="${x.id}" class="${f.categoria === x.id ? 'ativa' : ''}">${x.icone} ${esc(x.rotulo)} <small>${x.n}</small></button>`).join('')}
+      </div>
+      <small class="rotulo-mini">Duração</small>
+      <div class="chips pequenos" id="efxDur">${[['', 'Todas'], ['curto', 'Curto'], ['medio', 'Médio'], ['longo', 'Longo']].map(([k, v]) => `<button data-dur="${k}" class="${f.duracao === k ? 'ativa' : ''}">${v}</button>`).join('')}</div>
+      <small class="rotulo-mini">Caráter</small>
+      <div class="chips pequenos" id="efxMacio">${[['', 'Todos'], ['macio', 'Macio'], ['aspero', 'Áspero']].map(([k, v]) => `<button data-macio="${k}" class="${f.macio === k ? 'ativa' : ''}">${v}</button>`).join('')}</div>
+      <label class="check"><input type="checkbox" id="efxFav" ${f.fav ? 'checked' : ''}> ★ só favoritos</label>
+      <button class="btn mini" id="efxMais">＋ Importar outro pacote</button>
+      <p class="ajuda" style="margin:0">${c.pacotes.length} pacote(s). Espaço toca/para, ↑ ↓ trocam de som.</p>
+    </aside>
+    <section class="efx-lista-caixa"><div class="mono" id="efxTotal"></div><div id="efxLista" class="efx-lista"></div>
+      <button class="btn mini fantasma" id="efxCarregar" hidden>Carregar mais</button></section>
+  </div>`;
+  $('#efxBusca').oninput = (e) => { clearTimeout(efx.espera); efx.espera = setTimeout(() => { f.q = e.target.value; carregarSonsEfx(true); }, 250); };
+  $$('.efx-cats [data-cat]').forEach((b) => { b.onclick = () => { f.categoria = b.dataset.cat; desenharBibliotecaEfx(); }; });
+  $$('#efxDur [data-dur]').forEach((b) => { b.onclick = () => { f.duracao = b.dataset.dur; desenharBibliotecaEfx(); }; });
+  $$('#efxMacio [data-macio]').forEach((b) => { b.onclick = () => { f.macio = b.dataset.macio; desenharBibliotecaEfx(); }; });
+  $('#efxFav').onchange = (e) => { f.fav = e.target.checked; carregarSonsEfx(true); };
+  $('#efxMais').onclick = () => desenharImportarEfx(true);
+  $('#efxCarregar').onclick = () => { efx.pagina++; carregarSonsEfx(false); };
+  carregarSonsEfx(true);
+}
+
+async function carregarSonsEfx(reset) {
+  if (reset) { efx.pagina = 0; efx.itens = []; efx.sel = -1; }
+  const f = efx.f;
+  const q = new URLSearchParams({ q: f.q, categoria: f.categoria, duracao: f.duracao, macio: f.macio, fav: f.fav ? '1' : '', pagina: efx.pagina });
+  let r;
+  try { r = await api(`/api/efeitos/sons?${q}`); } catch (e) { toast(e.message, 'erro'); return; }
+  efx.total = r.total;
+  efx.itens.push(...r.itens);
+  $('#efxTotal').textContent = `${r.total} sons`;
+  $('#efxLista').innerHTML = efx.itens.map(linhaEfx).join('') || '<p class="ajuda">Nenhum som com esses filtros.</p>';
+  $('#efxCarregar').hidden = efx.itens.length >= r.total;
+  $$('#efxLista .efx-som').forEach((el) => { el.onclick = (e) => { if (!e.target.closest('[data-fav]')) tocarEfx(+el.dataset.i); }; });
+  $$('#efxLista [data-fav]').forEach((b) => {
+    b.onclick = async () => {
+      const s = efx.itens[+b.dataset.fav];
+      s.fav = !s.fav;
+      b.classList.toggle('ativa', s.fav);
+      try { await api('/api/efeitos/favorito', { corpo: { id: s.id, ativo: s.fav } }); } catch (e) { toast(e.message, 'erro'); }
+    };
+  });
+}
+
+function linhaEfx(s, i) {
+  const barras = (s.onda || []).map((v, k) => `<rect x="${k * 2}" y="${(1 - v) * 9}" width="1.4" height="${Math.max(0.6, v * 18)}"/>`).join('');
+  return `<div class="efx-som ${i === efx.sel ? 'sel' : ''}" data-i="${i}">
+    <svg viewBox="0 0 96 18" class="efx-onda" preserveAspectRatio="none">${barras}</svg>
+    <span class="efx-play">▶</span>
+    <div class="efx-info"><b>${esc(s.nome)}</b>${s.fatia ? ` <span class="tag">golpe ${s.golpe}</span>` : ''}
+      <small>${esc(s.pacote)} · ${durFmt(s.duracao)}${(s.tags || []).length ? ' · ' + s.tags.map(esc).join(', ') : ''}</small></div>
+    <button class="efx-estrela ${s.fav ? 'ativa' : ''}" data-fav="${i}" title="Favoritar">★</button></div>`;
+}
+
+function tocarEfx(i) {
+  if (i < 0 || i >= efx.itens.length) return;
+  efx.sel = i;
+  $$('#efxLista .efx-som').forEach((el) => el.classList.toggle('sel', +el.dataset.i === i));
+  $(`#efxLista .efx-som[data-i="${i}"]`)?.scrollIntoView({ block: 'nearest' });
+  efx.audio.src = `/api/efeitos/ouvir/${efx.itens[i].id}`;
+  efx.audio.play().catch(() => {});
+}
+document.addEventListener('keydown', (e) => {
+  if (estado.vista !== 'efeitos' || !efx.itens.length || /input|textarea|select/i.test(e.target.tagName)) return;
+  if (e.key === ' ') { e.preventDefault(); if (efx.audio.paused) tocarEfx(Math.max(0, efx.sel)); else efx.audio.pause(); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); tocarEfx(Math.min(efx.itens.length - 1, efx.sel + 1)); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); tocarEfx(Math.max(0, efx.sel - 1)); }
+});

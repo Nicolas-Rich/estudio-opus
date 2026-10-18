@@ -17,6 +17,7 @@
       <button data-vista="projetos">Projetos <span class="cont" id="contProjetos">0</span></button>
       <button data-vista="voz">🎙 Voz</button>
       <button data-vista="kie">🎬 Cenas IA</button>
+      <button data-vista="efeitos">🔊 Efeitos</button>
       <button data-vista="gerador">⚡ Opus Generator</button>
       <button data-vista="editor">Editor</button>
     </nav>
@@ -83,6 +84,17 @@
       <section class="voz-col" id="kieForm"></section>
       <section class="voz-col"><h3>Resultados</h3><div id="kieHistorico" class="kie-lista"></div></section>
     </div>
+  </main>
+
+  <!-- ===================== EFEITOS (biblioteca de efeitos sonoros reais) ===================== -->
+  <main id="vista-efeitos" class="vista">
+    <div class="voz-topo">
+      <div>
+        <h1>🔊 Efeitos <small class="kie-selo">biblioteca real</small></h1>
+        <p class="sub">Efeitos sonoros profissionais (ex.: Sonniss GDC) guardados no seu PC: busque por categoria ou palavra, ouça e favorite. Os sons ficam só aqui — a licença não permite redistribuir.</p>
+      </div>
+    </div>
+    <div id="efxCorpo"></div>
   </main>
 
   <!-- ===================== OPUS GENERATOR (WanGP / MiniMax H3 local) ===================== -->
