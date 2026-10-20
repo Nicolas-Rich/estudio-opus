@@ -673,3 +673,13 @@ body.arrastando-midia .tl-clipes, body.arrastando-midia .tl-musica, body.arrasta
 .son-agulha { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--acento); pointer-events: none; }
 .son-insp { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--borda); border-radius: 8px; }
 @media (max-width: 900px) { .son-grade { grid-template-columns: 1fr; } }
+
+/* ---------- estilos visuais (criar do zero) ---------- */
+.estilos-campo { display: grid; gap: 6px; }
+.estilos-campo .rotulo { font-size: 12.5px; color: var(--texto-2); font-weight: 500; }
+.estilos-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; max-height: 240px; overflow: auto; padding-right: 2px; }
+.estilos-grade button { text-align: left; background: var(--painel-2); border: 1px solid var(--borda); border-radius: 8px; padding: 7px 9px; cursor: pointer; color: var(--texto); display: grid; gap: 2px; font: inherit; }
+.estilos-grade button b { font-size: 12.5px; font-weight: 600; }
+.estilos-grade button small { font-size: 11px; color: var(--texto-3); line-height: 1.3; }
+.estilos-grade button:hover { border-color: var(--acento); }
+.estilos-grade button.ativa { border-color: var(--acento); box-shadow: 0 0 0 1px var(--acento); background: rgba(255,106,61,.08); }

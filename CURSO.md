@@ -162,6 +162,8 @@ Escreva o que é cada imagem ("logo da marca", "pote sabor chocolate"). A IA vê
 
 > 🎯 Partindo de um modelo, deixe marcado **"ficar fiel ao visual do vídeo original"**. A IA recebe um quadro do vídeo original e reproduz o visual, trocando só o conteúdo pela sua marca.
 
+> 🎨 **Estilo visual** (no **＋ Criar do zero**): escolha um dos 17 estilos — 3D realista, Clay/massinha 3D, Feltro/brinquedo, Voxel, Pixel art, Tipografia cinética, Motion graphics de marca, Glassmorphism, Neon/cyberpunk, Papel recortado, Desenho à mão, Partículas e fluidos, Cromado/mármore premium, Infográfico, Interface/app, Arte generativa e Terminal — ou **Livre**. O estúdio manda para a IA uma diretriz técnica completa do estilo (materiais, luz, fontes, tipo de movimento), e o **✦ Gerar prompt da minha ideia** também escreve o prompt nesse estilo.
+
 > ✦ **Guia de qualidade HyperFrames** (caixa marcada por padrão no formulário): antes de criar, a IA consulta os *blueprints* de cena, as receitas de movimento e as paletas do projeto aberto [HyperFrames](https://github.com/heygen-com/hyperframes), da HeyGen (licença Apache-2.0). O resultado tem mais ritmo e movimentos de nível profissional. Na primeira vez que o estúdio abre, ele baixa só essa parte do guia (~6 MB). Desmarque a caixa se quiser uma geração mais rápida.
 
 ### 3.5 Escolha o motor

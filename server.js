@@ -20,6 +20,7 @@ import { comporSobreVideo, sondarVideo } from './lib/sobre-video.js';
 import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 import { registrarRotasKie } from './lib/rotas-kie.js';
 import { garantirGuia, guiaPronto, prepararPastaTrabalho, BLOCO_GUIA, atualizarGuia } from './lib/hyperframes.js';
+import { ESTILOS } from './lib/estilos.js';
 import { registrarRotasEfeitos } from './lib/rotas-efeitos.js';
 import { registrarRotasSonorizar } from './lib/rotas-sonorizar.js';
 import { registrarRotasGerador } from './lib/rotas-gerador.js';
@@ -242,6 +243,7 @@ app.post('/api/midia/upload', async (req, res) => {
 
 app.use(express.json({ limit: '20mb' }));
 
+app.get('/api/estilos', (_req, res) => res.json(ESTILOS.map(({ id, nome, emoji, exemplo }) => ({ id, nome, emoji, exemplo }))));
 app.get('/api/status', async (_req, res) => {
   const codex = await versaoCodex();
   res.json({ claude: await versaoClaude(), codex, modelosClaude: [...MODELOS_CLAUDE, ...(codex ? MODELOS_CODEX : [])], totalModelos: modelos.length, guiaHF: guiaPronto() });

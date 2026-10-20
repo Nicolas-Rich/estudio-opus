@@ -271,6 +271,11 @@ function formularioCriacao(m) {
           <select id="fIdioma">${IDIOMAS.map((i) => `<option ${i === (ult.idioma || IDIOMAS[0]) ? 'selected' : ''}>${i}</option>`).join('')}</select>
         </label>
       </div>
+      ${!m && estado.estilos?.length ? `<div class="estilos-campo"><span class="rotulo">🎨 Estilo visual</span>
+        <div class="estilos-grade" id="fEstilos">
+          <button type="button" data-estilo="" class="${!ult.estilo ? 'ativa' : ''}"><b>🎯 Livre</b><small>segue o prompt</small></button>
+          ${estado.estilos.map((e) => `<button type="button" data-estilo="${e.id}" class="${ult.estilo === e.id ? 'ativa' : ''}" title="${esc(e.exemplo)}"><b>${e.emoji} ${esc(e.nome)}</b><small>${esc(e.exemplo)}</small></button>`).join('')}
+        </div></div>` : ''}
       <label>Paleta / identidade visual (opcional)
         <input type="text" id="fCores" value="${esc(ult.cores || '')}" placeholder="Ex.: preto, laranja #FF6A3D e branco; fonte bold condensada">
       </label>
@@ -295,6 +300,9 @@ function formularioCriacao(m) {
 function ligarFormulario(m) {
   $$('#fFormatos .formato').forEach((b) => b.addEventListener('click', () => {
     $$('#fFormatos .formato').forEach((x) => x.classList.toggle('ativa', x === b));
+  }));
+  $$('#fEstilos button').forEach((b) => b.addEventListener('click', () => {
+    $$('#fEstilos button').forEach((x) => x.classList.toggle('ativa', x === b));
   }));
 
   // ---------- imagens (elementos e referências)
@@ -424,6 +432,7 @@ function ligarFormulario(m) {
       duracao: +$('#fDuracao').value || 10,
       idioma: $('#fIdioma').value === IDIOMAS[3] ? '' : $('#fIdioma').value,
       tema: $('#fTema').value.trim(), textos: $('#fTextos').value.trim(), cores: $('#fCores').value.trim(),
+      estilo: $('#fEstilos .ativa')?.dataset.estilo || '',
     };
   };
   let promptAnterior = null;
@@ -474,11 +483,11 @@ function ligarFormulario(m) {
       idioma: $('#fIdioma').value === IDIOMAS[3] ? '' : $('#fIdioma').value,
       tema: $('#fTema').value.trim(), textos: $('#fTextos').value.trim(),
       cores: $('#fCores').value.trim(), extra: $('#fExtra').value.trim(),
-      guiaHF: $('#fGuiaHF') ? $('#fGuiaHF').checked : true,
+      guiaHF: $('#fGuiaHF') ? $('#fGuiaHF').checked : true, estilo: $('#fEstilos .ativa')?.dataset.estilo || '',
     };
     try { localStorage.setItem('guiaHF', ajustes.guiaHF ? '1' : '0'); } catch {}
     localStorage.setItem('ultimosAjustes', JSON.stringify({
-      formato: f.id, duracao: ajustes.duracao, idioma: $('#fIdioma').value, tema: ajustes.tema, cores: ajustes.cores, modelo: $('#fModelo').value,
+      formato: f.id, duracao: ajustes.duracao, idioma: $('#fIdioma').value, estilo: ajustes.estilo, tema: ajustes.tema, cores: ajustes.cores, modelo: $('#fModelo').value,
     }));
     $('#fGerar').disabled = true;
     const rotuloOriginal = $('#fGerar').textContent;
@@ -3639,7 +3648,7 @@ function seguirHash() {
 window.addEventListener('hashchange', seguirHash);
 
 (async () => {
-  await Promise.all([carregarStatus(), carregarModelos(), carregarEdicao(), carregarMidia()]);
+  await Promise.all([carregarStatus(), carregarModelos(), carregarEdicao(), carregarMidia(), api('/api/estilos').then((e) => { estado.estilos = e; }).catch(() => {})]);
   carregarProjetos();
   seguirHash();
 })();
