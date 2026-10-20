@@ -241,6 +241,7 @@ function formularioCriacao(m) {
           <label class="btn mini" style="flex:none" title="Envie um vídeo para a IA recriar igual">🎞 Vídeo de referência<input type="file" id="fVideoRef" hidden accept="video/*,.gif"></label>
         </div>
         <div id="fVideoRefBox" hidden></div>
+        <label class="check" title="A IA consulta os blueprints de cena, receitas de movimento e paletas do HyperFrames (HeyGen) antes de criar. A geração fica um pouco mais lenta."><input type="checkbox" id="fGuiaHF" ${(() => { try { return localStorage.getItem('guiaHF') === '0' ? '' : 'checked'; } catch { return 'checked'; } })()}> ✦ <b>Guia de qualidade HyperFrames</b> (cenas e movimentos testados em vídeos profissionais)</label>
         ${m ? '<label class="check"><input type="checkbox" id="fFiel" checked> ficar <b>fiel ao visual do vídeo original</b> (a IA vê um quadro dele)</label>' : ''}
         <p class="ajuda" style="margin:0"><b>Elemento</b> = entra no vídeo (logo, produto, foto). <b>Referência</b> = o Claude só copia o estilo. Ele vê as imagens antes de criar.</p>
         <div id="fListaImagens" class="lista-imagens"></div>
@@ -473,7 +474,9 @@ function ligarFormulario(m) {
       idioma: $('#fIdioma').value === IDIOMAS[3] ? '' : $('#fIdioma').value,
       tema: $('#fTema').value.trim(), textos: $('#fTextos').value.trim(),
       cores: $('#fCores').value.trim(), extra: $('#fExtra').value.trim(),
+      guiaHF: $('#fGuiaHF') ? $('#fGuiaHF').checked : true,
     };
+    try { localStorage.setItem('guiaHF', ajustes.guiaHF ? '1' : '0'); } catch {}
     localStorage.setItem('ultimosAjustes', JSON.stringify({
       formato: f.id, duracao: ajustes.duracao, idioma: $('#fIdioma').value, tema: ajustes.tema, cores: ajustes.cores, modelo: $('#fModelo').value,
     }));

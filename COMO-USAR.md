@@ -26,6 +26,7 @@ Pelo terminal: `npm start` dentro desta pasta.
 - **💡 Sua ideia → ✦ Gerar prompt**: escreva a ideia em poucas palavras e o Claude escreve um prompt completo, com cenas, tempos, paleta e gancho, no estilo do modelo escolhido. Dá para desfazer. **✦ Sugerir instruções extras** propõe gancho, CTA, áreas seguras do Reels e legibilidade; escreva no campo o que você quer (ex.: "CTA para comprar no link") antes de clicar.
 - **Usar este modelo**: edite o prompt, informe o tema/marca (ex.: *Minha Marca — produto*), os textos,
   o formato (9:16, 4:5, 1:1 ou 16:9), a duração, o idioma e a paleta, e clique em **Gerar animação com Claude**.
+- **✦ Guia de qualidade HyperFrames** (marcado por padrão): a IA consulta blueprints de cena, receitas de movimento e paletas do [HyperFrames](https://github.com/heygen-com/hyperframes) (HeyGen, Apache-2.0) antes de criar. É baixado automaticamente na 1ª vez (~6 MB).
 - "⟳ Atualizar repo" roda `git pull` para buscar modelos novos.
 
 ### 2. Projetos

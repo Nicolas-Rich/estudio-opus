@@ -14,3 +14,6 @@ Thumbs.db
 desktop.ini
 .DS_Store
 _*.mjs
+
+# guia de qualidade HyperFrames (baixado automaticamente do GitHub da HeyGen)
+/hyperframes-guia/

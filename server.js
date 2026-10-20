@@ -19,6 +19,7 @@ import { analisarVideo } from './lib/analise-video.js';
 import { comporSobreVideo, sondarVideo } from './lib/sobre-video.js';
 import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 import { registrarRotasKie } from './lib/rotas-kie.js';
+import { garantirGuia, guiaPronto, prepararPastaTrabalho, BLOCO_GUIA, atualizarGuia } from './lib/hyperframes.js';
 import { registrarRotasEfeitos } from './lib/rotas-efeitos.js';
 import { registrarRotasSonorizar } from './lib/rotas-sonorizar.js';
 import { registrarRotasGerador } from './lib/rotas-gerador.js';
@@ -76,6 +77,7 @@ if (!existsSync(path.join(REPO, 'data', 'videos.json'))) {
   }
 }
 await carregarModelos();
+garantirGuia(RAIZ); // guia de qualidade HyperFrames (baixa em segundo plano na 1ª vez)
 
 // ---------------------------------------------------------------- jobs
 const jobs = new Map();
@@ -167,10 +169,17 @@ function iniciarGeracao(p, pedido, origem, instrucao) {
   job.status = 'rodando';
   msgJob(job, 'Enviando o pedido para o Claude…');
   const t0 = Date.now();
-  gerarComClaude({
-    pedido,
+  // guia de qualidade HyperFrames: a IA consulta blueprints/receitas numa pasta de trabalho (desliga com ajustes.guiaHF = false)
+  const usarGuia = guiaPronto() && p.ajustes?.guiaHF !== false;
+  const pastaAssets = path.join(pastaProjeto(p.id), 'assets');
+  const pastaTrabalho = usarGuia
+    ? prepararPastaTrabalho(pastaProjeto(p.id), pastaAssets, (p.imagens || []).map((i) => i.arquivo))
+    : Promise.resolve(p.imagens?.length ? pastaAssets : undefined);
+  if (usarGuia) msgJob(job, 'Guia de qualidade HyperFrames ativo: a IA vai consultar blueprints e receitas de movimento.');
+  pastaTrabalho.then((pastaImagens) => gerarComClaude({
+    pedido: usarGuia ? pedido + '\n' + BLOCO_GUIA : pedido,
     modelo: p.modelo,
-    pastaImagens: p.imagens?.length ? path.join(pastaProjeto(p.id), 'assets') : undefined,
+    pastaImagens,
     sinal: job.controle.signal,
     aoProgresso: (chars, msg) => {
       if (msg) msgJob(job, msg);
@@ -179,7 +188,7 @@ function iniciarGeracao(p, pedido, origem, instrucao) {
         job.ultima = `Escrevendo o código… ${(chars / 1000).toFixed(1)}k caracteres · ${Math.round((Date.now() - t0) / 1000)}s`;
       }
     },
-  }).then(async (r) => {
+  })).then(async (r) => {
     const atual = (await lerProjeto(p.id)) || p;
     const n = (atual.versoes?.length || 0) + 1;
     const conferido = consertarHtml(r.html);
@@ -235,7 +244,7 @@ app.use(express.json({ limit: '20mb' }));
 
 app.get('/api/status', async (_req, res) => {
   const codex = await versaoCodex();
-  res.json({ claude: await versaoClaude(), codex, modelosClaude: [...MODELOS_CLAUDE, ...(codex ? MODELOS_CODEX : [])], totalModelos: modelos.length });
+  res.json({ claude: await versaoClaude(), codex, modelosClaude: [...MODELOS_CLAUDE, ...(codex ? MODELOS_CODEX : [])], totalModelos: modelos.length, guiaHF: guiaPronto() });
 });
 
 app.get('/api/modelos', (_req, res) => {
