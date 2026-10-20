@@ -274,7 +274,8 @@ function formularioCriacao(m) {
       ${!m && estado.estilos?.length ? `<div class="estilos-campo"><span class="rotulo">🎨 Estilo visual <small id="fEstilosDica" class="ajuda"></small></span>
         <div class="estilos-grade" id="fEstilos">
           <button type="button" data-estilo="" class=""><b>🎯 Livre</b><small>a IA escolhe ou mistura</small></button>
-          ${estado.estilos.map((e) => `<button type="button" data-estilo="${e.id}" class="${(ult.estilos || (ult.estilo ? [ult.estilo] : [])).includes(e.id) ? 'ativa' : ''}" title="${esc(e.exemplo)}"><b>${e.emoji} ${esc(e.nome)}</b><small>${esc(e.exemplo)}</small></button>`).join('')}
+          ${estado.estilos.map((e) => `<button type="button" data-estilo="${e.id}" class="${(ult.estilos || (ult.estilo ? [ult.estilo] : [])).includes(e.id) ? 'ativa' : ''}" title="${esc(e.exemplo)}"><b>${e.emoji} ${esc(e.nome)}${e.proprio ? ' <i class="selo-meu">meu</i>' : ''}</b><small>${esc(e.exemplo)}</small>${e.proprio ? `<span class="apagar-estilo" data-apagar="${e.id}" title="Apagar este estilo">×</span>` : ''}</button>`).join('')}
+          <button type="button" class="novo-estilo" id="fNovoEstilo"><b>＋ Meu estilo</b><small>crie um estilo seu (ex.: do seu canal)</small></button>
         </div></div>` : ''}
       <label>Paleta / identidade visual (opcional)
         <input type="text" id="fCores" value="${esc(ult.cores || '')}" placeholder="Ex.: preto, laranja #FF6A3D e branco; fonte bold condensada">
@@ -304,7 +305,7 @@ function ligarFormulario(m) {
   // estilos: até 3 misturados (a ordem do clique define a base); "Livre" deixa a IA escolher
   let ordemEstilos = $$('#fEstilos button.ativa').map((b) => b.dataset.estilo).filter(Boolean);
   const pintarEstilos = () => {
-    $$('#fEstilos button').forEach((x) => {
+    $$('#fEstilos button[data-estilo]').forEach((x) => {
       const i = ordemEstilos.indexOf(x.dataset.estilo);
       x.classList.toggle('ativa', x.dataset.estilo ? i >= 0 : !ordemEstilos.length);
       x.dataset.ordem = i >= 0 && ordemEstilos.length > 1 ? (i === 0 ? 'base' : `+${i}`) : '';
@@ -315,7 +316,43 @@ function ligarFormulario(m) {
         : 'Mistura: o primeiro marcado é a base do visual, os outros entram como acento.';
   };
   pintarEstilos();
-  $$('#fEstilos button').forEach((b) => b.addEventListener('click', () => {
+  // estilo próprio: formulário dentro do campo (o modal de criação continua aberto)
+  const novo = $('#fNovoEstilo');
+  if (novo) novo.onclick = () => {
+    if ($('#fNovoEstiloForm')) return $('#fNovoEstiloForm').remove();
+    const caixa = document.createElement('div');
+    caixa.id = 'fNovoEstiloForm';
+    caixa.className = 'novo-estilo-form';
+    caixa.innerHTML = `<div class="linha"><label style="max-width:90px">Ícone<input id="neEmoji" value="⭐" maxlength="4"></label><label>Nome<input id="neNome" placeholder="Ex.: Meu canal"></label></div>
+      <label>Resumo curto<input id="neExemplo" placeholder="Ex.: raio-X escuro, ciano e âmbar"></label>
+      <label>Como é o estilo (cores, fontes, materiais, tipo de movimento, regras fixas)
+        <textarea id="neDiretriz" rows="6" placeholder="Ex.: fundo #0B0D12, linhas ciano #22D3EE, destaque âmbar #F5B841, fonte Space Grotesk, objetos 3D que se abrem em peças, mudança visual a cada 2–3 s, logo no final…"></textarea></label>
+      <button type="button" class="btn primario" id="neSalvar">Salvar estilo</button>`;
+    $('#fEstilos').after(caixa);
+    $('#neSalvar').onclick = async () => {
+      try {
+        const e = await api('/api/estilos', { corpo: { nome: $('#neNome').value, emoji: $('#neEmoji').value, exemplo: $('#neExemplo').value, diretriz: $('#neDiretriz').value } });
+        estado.estilos = await api('/api/estilos');
+        const b = document.createElement('button');
+        b.type = 'button'; b.dataset.estilo = e.id; b.title = e.exemplo;
+        b.innerHTML = `<b>${esc(e.emoji)} ${esc(e.nome)} <i class="selo-meu">meu</i></b><small>${esc(e.exemplo)}</small>`;
+        $('#fEstilos [data-estilo=""]').after(b);
+        ligarChip(b);
+        caixa.remove();
+        ordemEstilos = [e.id]; $('#fEstilos').dataset.escolha = e.id; pintarEstilos();
+        toast(`Estilo “${e.nome}” salvo. Ele fica só neste PC.`, 'ok');
+      } catch (err) { toast(err.message, 'erro'); }
+    };
+  };
+  $$('#fEstilos [data-apagar]').forEach((x) => x.addEventListener('click', async (ev) => {
+    ev.stopPropagation();
+    if (!confirm('Apagar este estilo seu?')) return;
+    await api(`/api/estilos/${x.dataset.apagar}`, { method: 'DELETE' });
+    ordemEstilos = ordemEstilos.filter((i) => i !== x.dataset.apagar);
+    x.closest('button').remove();
+    $('#fEstilos').dataset.escolha = ordemEstilos.join(','); pintarEstilos();
+  }));
+  const ligarChip = (b) => b.addEventListener('click', () => {
     const id = b.dataset.estilo;
     if (!id) ordemEstilos = [];
     else if (ordemEstilos.includes(id)) ordemEstilos = ordemEstilos.filter((x) => x !== id);
@@ -323,7 +360,8 @@ function ligarFormulario(m) {
     else ordemEstilos.push(id);
     $('#fEstilos').dataset.escolha = ordemEstilos.join(',');
     pintarEstilos();
-  }));
+  });
+  $$('#fEstilos button[data-estilo]').forEach(ligarChip);
   if ($('#fEstilos')) $('#fEstilos').dataset.escolha = ordemEstilos.join(',');
 
   // ---------- imagens (elementos e referências)

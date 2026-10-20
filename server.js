@@ -20,7 +20,7 @@ import { comporSobreVideo, sondarVideo } from './lib/sobre-video.js';
 import { MODELOS_CODEX, versaoCodex } from './lib/codex.js';
 import { registrarRotasKie } from './lib/rotas-kie.js';
 import { garantirGuia, guiaPronto, prepararPastaTrabalho, BLOCO_GUIA, atualizarGuia } from './lib/hyperframes.js';
-import { ESTILOS } from './lib/estilos.js';
+import { todosEstilos, estiloPorId, definirPersonalizados } from './lib/estilos.js';
 import { registrarRotasEfeitos } from './lib/rotas-efeitos.js';
 import { registrarRotasSonorizar } from './lib/rotas-sonorizar.js';
 import { registrarRotasGerador } from './lib/rotas-gerador.js';
@@ -243,7 +243,34 @@ app.post('/api/midia/upload', async (req, res) => {
 
 app.use(express.json({ limit: '20mb' }));
 
-app.get('/api/estilos', (_req, res) => res.json(ESTILOS.map(({ id, nome, emoji, exemplo }) => ({ id, nome, emoji, exemplo }))));
+// ---- estilos visuais (base + personalizados do usuário em dados/)
+const ARQ_ESTILOS = path.join(DADOS, 'estilos-personalizados.json');
+definirPersonalizados(await lerJson(ARQ_ESTILOS, []));
+const estiloPublico = ({ id, nome, emoji, exemplo, proprio }) => ({ id, nome, emoji, exemplo, proprio: !!proprio });
+app.get('/api/estilos', (_req, res) => res.json(todosEstilos().map(estiloPublico)));
+app.get('/api/estilos/:id', (req, res) => {
+  const e = estiloPorId(req.params.id);
+  return e ? res.json(e) : res.status(404).json({ erro: 'Estilo não encontrado' });
+});
+app.post('/api/estilos', async (req, res) => {
+  const b = req.body || {};
+  const nome = String(b.nome || '').trim().slice(0, 40);
+  const diretriz = String(b.diretriz || '').trim().slice(0, 4000);
+  if (!nome || diretriz.length < 20) return res.status(400).json({ erro: 'Dê um nome e descreva o estilo (pelo menos uma frase).' });
+  const lista = await lerJson(ARQ_ESTILOS, []);
+  const id = b.id && lista.some((e) => e.id === b.id) ? b.id : `meu-${slugify(nome)}-${Date.now().toString(36).slice(-4)}`;
+  const estilo = { id, nome, emoji: String(b.emoji || '⭐').slice(0, 4), exemplo: String(b.exemplo || 'meu estilo').slice(0, 80), diretriz, proprio: true };
+  const nova = [estilo, ...lista.filter((e) => e.id !== id)];
+  await gravarJson(ARQ_ESTILOS, nova);
+  definirPersonalizados(nova);
+  res.json(estiloPublico(estilo));
+});
+app.delete('/api/estilos/:id', async (req, res) => {
+  const nova = (await lerJson(ARQ_ESTILOS, [])).filter((e) => e.id !== req.params.id);
+  await gravarJson(ARQ_ESTILOS, nova);
+  definirPersonalizados(nova);
+  res.json({ ok: true });
+});
 app.get('/api/status', async (_req, res) => {
   const codex = await versaoCodex();
   res.json({ claude: await versaoClaude(), codex, modelosClaude: [...MODELOS_CLAUDE, ...(codex ? MODELOS_CODEX : [])], totalModelos: modelos.length, guiaHF: guiaPronto() });

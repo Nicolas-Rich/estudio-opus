@@ -686,3 +686,12 @@ body.arrastando-midia .tl-clipes, body.arrastando-midia .tl-musica, body.arrasta
 .estilos-grade button { position: relative; }
 .estilos-grade button[data-ordem]:not([data-ordem=""])::after { content: attr(data-ordem); position: absolute; top: 4px; right: 5px; font-size: 10px; font-weight: 700; background: var(--acento); color: #fff; border-radius: 99px; padding: 0 6px; }
 .estilos-campo .rotulo small { font-weight: 400; margin-left: 6px; }
+.estilos-grade .selo-meu { font-style: normal; font-size: 9.5px; background: var(--ok); color: #06140d; border-radius: 99px; padding: 0 5px; margin-left: 3px; vertical-align: 1px; }
+.estilos-grade .apagar-estilo { position: absolute; bottom: 3px; right: 6px; color: var(--texto-3); font-size: 14px; line-height: 1; }
+.estilos-grade .apagar-estilo:hover { color: var(--erro); }
+.estilos-grade .novo-estilo { border-style: dashed; color: var(--texto-2); }
+.novo-estilo-form { display: grid; gap: 8px; background: var(--painel-2); border: 1px solid var(--acento); border-radius: 10px; padding: 10px 12px; }
+.novo-estilo-form label { display: grid; gap: 4px; font-size: 12.5px; width: 100%; }
+.novo-estilo-form .linha { display: flex; gap: 8px; }
+.novo-estilo-form .linha label:last-child { flex: 1; }
+.novo-estilo-form input, .novo-estilo-form textarea { width: 100%; }
