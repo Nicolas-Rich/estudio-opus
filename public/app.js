@@ -271,10 +271,10 @@ function formularioCriacao(m) {
           <select id="fIdioma">${IDIOMAS.map((i) => `<option ${i === (ult.idioma || IDIOMAS[0]) ? 'selected' : ''}>${i}</option>`).join('')}</select>
         </label>
       </div>
-      ${!m && estado.estilos?.length ? `<div class="estilos-campo"><span class="rotulo">🎨 Estilo visual</span>
+      ${!m && estado.estilos?.length ? `<div class="estilos-campo"><span class="rotulo">🎨 Estilo visual <small id="fEstilosDica" class="ajuda"></small></span>
         <div class="estilos-grade" id="fEstilos">
-          <button type="button" data-estilo="" class="${!ult.estilo ? 'ativa' : ''}"><b>🎯 Livre</b><small>segue o prompt</small></button>
-          ${estado.estilos.map((e) => `<button type="button" data-estilo="${e.id}" class="${ult.estilo === e.id ? 'ativa' : ''}" title="${esc(e.exemplo)}"><b>${e.emoji} ${esc(e.nome)}</b><small>${esc(e.exemplo)}</small></button>`).join('')}
+          <button type="button" data-estilo="" class=""><b>🎯 Livre</b><small>a IA escolhe ou mistura</small></button>
+          ${estado.estilos.map((e) => `<button type="button" data-estilo="${e.id}" class="${(ult.estilos || (ult.estilo ? [ult.estilo] : [])).includes(e.id) ? 'ativa' : ''}" title="${esc(e.exemplo)}"><b>${e.emoji} ${esc(e.nome)}</b><small>${esc(e.exemplo)}</small></button>`).join('')}
         </div></div>` : ''}
       <label>Paleta / identidade visual (opcional)
         <input type="text" id="fCores" value="${esc(ult.cores || '')}" placeholder="Ex.: preto, laranja #FF6A3D e branco; fonte bold condensada">
@@ -301,9 +301,30 @@ function ligarFormulario(m) {
   $$('#fFormatos .formato').forEach((b) => b.addEventListener('click', () => {
     $$('#fFormatos .formato').forEach((x) => x.classList.toggle('ativa', x === b));
   }));
+  // estilos: até 3 misturados (a ordem do clique define a base); "Livre" deixa a IA escolher
+  let ordemEstilos = $$('#fEstilos button.ativa').map((b) => b.dataset.estilo).filter(Boolean);
+  const pintarEstilos = () => {
+    $$('#fEstilos button').forEach((x) => {
+      const i = ordemEstilos.indexOf(x.dataset.estilo);
+      x.classList.toggle('ativa', x.dataset.estilo ? i >= 0 : !ordemEstilos.length);
+      x.dataset.ordem = i >= 0 && ordemEstilos.length > 1 ? (i === 0 ? 'base' : `+${i}`) : '';
+    });
+    const dica = $('#fEstilosDica');
+    if (dica) dica.textContent = !ordemEstilos.length ? 'Livre: a IA escolhe o estilo (ou a mistura) que deixa a sua ideia mais interessante.'
+      : ordemEstilos.length === 1 ? 'Clique em mais estilos para misturar (até 3).'
+        : 'Mistura: o primeiro marcado é a base do visual, os outros entram como acento.';
+  };
+  pintarEstilos();
   $$('#fEstilos button').forEach((b) => b.addEventListener('click', () => {
-    $$('#fEstilos button').forEach((x) => x.classList.toggle('ativa', x === b));
+    const id = b.dataset.estilo;
+    if (!id) ordemEstilos = [];
+    else if (ordemEstilos.includes(id)) ordemEstilos = ordemEstilos.filter((x) => x !== id);
+    else if (ordemEstilos.length >= 3) return toast('Misture no máximo 3 estilos.', 'erro');
+    else ordemEstilos.push(id);
+    $('#fEstilos').dataset.escolha = ordemEstilos.join(',');
+    pintarEstilos();
   }));
+  if ($('#fEstilos')) $('#fEstilos').dataset.escolha = ordemEstilos.join(',');
 
   // ---------- imagens (elementos e referências)
   const imagens = [];
@@ -432,7 +453,7 @@ function ligarFormulario(m) {
       duracao: +$('#fDuracao').value || 10,
       idioma: $('#fIdioma').value === IDIOMAS[3] ? '' : $('#fIdioma').value,
       tema: $('#fTema').value.trim(), textos: $('#fTextos').value.trim(), cores: $('#fCores').value.trim(),
-      estilo: $('#fEstilos .ativa')?.dataset.estilo || '',
+      estilos: ($('#fEstilos')?.dataset.escolha || '').split(',').filter(Boolean), estiloLivre: !!$('#fEstilos') && !$('#fEstilos').dataset.escolha,
     };
   };
   let promptAnterior = null;
@@ -483,11 +504,11 @@ function ligarFormulario(m) {
       idioma: $('#fIdioma').value === IDIOMAS[3] ? '' : $('#fIdioma').value,
       tema: $('#fTema').value.trim(), textos: $('#fTextos').value.trim(),
       cores: $('#fCores').value.trim(), extra: $('#fExtra').value.trim(),
-      guiaHF: $('#fGuiaHF') ? $('#fGuiaHF').checked : true, estilo: $('#fEstilos .ativa')?.dataset.estilo || '',
+      guiaHF: $('#fGuiaHF') ? $('#fGuiaHF').checked : true, estilos: ($('#fEstilos')?.dataset.escolha || '').split(',').filter(Boolean), estiloLivre: !!$('#fEstilos') && !$('#fEstilos').dataset.escolha,
     };
     try { localStorage.setItem('guiaHF', ajustes.guiaHF ? '1' : '0'); } catch {}
     localStorage.setItem('ultimosAjustes', JSON.stringify({
-      formato: f.id, duracao: ajustes.duracao, idioma: $('#fIdioma').value, estilo: ajustes.estilo, tema: ajustes.tema, cores: ajustes.cores, modelo: $('#fModelo').value,
+      formato: f.id, duracao: ajustes.duracao, idioma: $('#fIdioma').value, estilos: ajustes.estilos, tema: ajustes.tema, cores: ajustes.cores, modelo: $('#fModelo').value,
     }));
     $('#fGerar').disabled = true;
     const rotuloOriginal = $('#fGerar').textContent;
