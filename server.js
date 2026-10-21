@@ -191,6 +191,8 @@ function iniciarGeracao(p, pedido, origem, instrucao) {
         job.ultima = `Escrevendo o código… ${(chars / 1000).toFixed(1)}k caracteres · ${Math.round((Date.now() - t0) / 1000)}s`;
       }
     },
+    // ao vivo: trecho do código sendo escrito e do raciocínio (a tela mostra enquanto gera)
+    aoVivo: (v) => { job.vivo = { ...(job.vivo || {}), ...v }; },
   })).then(async (r) => {
     const atual = (await lerProjeto(p.id)) || p;
     const n = (atual.versoes?.length || 0) + 1;

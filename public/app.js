@@ -683,7 +683,20 @@ async function renderizarDetalhe(completo = false) {
   const ov = $('#ovGerando');
   if (ov) {
     ov.hidden = p.status !== 'gerando';
-    if (p.job) $('#ovMsg').textContent = p.job.ultima || 'Aguardando o Claude…';
+    const j = p.job;
+    if (j) {
+      $('#ovMsg').textContent = j.ultima || 'Aguardando a IA…';
+      const s = Math.round((Date.now() - j.criado) / 1000);
+      $('#ovTempo').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      // passos (guia consultado, planejamento…)
+      $('#ovPassos').innerHTML = (j.mensagens || []).slice(-6).map((m) => `<div>› ${esc(m.m)}</div>`).join('');
+      const pensa = j.vivo?.pensamento;
+      $('#ovPensa').hidden = !pensa || !!j.vivo?.codigo;
+      if (pensa) $('#ovPensa p').textContent = '…' + pensa.slice(-280);
+      const cod = j.vivo?.codigo;
+      $('#ovCodigo').hidden = !cod;
+      if (cod) { $('#ovCodigo').textContent = cod; $('#ovCodigo').scrollTop = 1e9; }
+    }
   }
   if (p.status === 'gerando') pollProjeto = setTimeout(() => renderizarDetalhe(), 1200);
 }
@@ -707,9 +720,12 @@ function desenharDetalhe(p) {
           ${p.videoFundo ? `<video id="pvFundo" src="/p/${p.id}/fundo" width="${W}" height="${H}" muted playsinline preload="auto"></video>` : ''}
           ${p.versaoAtual ? `<iframe id="pvFrame" class="${p.videoFundo ? 'sobre-video' : ''}" src="/p/${p.id}/?v=${p.versaoAtual}&t=${Date.now()}" width="${W}" height="${H}" allow="autoplay; fullscreen"></iframe>` : ''}
           <div class="overlay-gerando" id="ovGerando" ${p.status === 'gerando' ? '' : 'hidden'}>
-            <div><div class="spinner"></div><b>O Claude está criando a animação</b>
-            <p class="mono" id="ovMsg">Aguardando…</p>
-            <button class="btn mini" id="pCancelar">Cancelar</button></div>
+            <div class="ao-vivo"><div class="ao-vivo-topo"><div class="spinner"></div><div><b>A IA está criando a animação</b>
+              <p class="mono" id="ovMsg">Aguardando…</p></div><span class="espaco"></span><span class="mono" id="ovTempo"></span>
+              <button class="btn mini" id="pCancelar">Cancelar</button></div>
+              <div class="ao-vivo-passos" id="ovPassos"></div>
+              <div class="ao-vivo-pensa" id="ovPensa" hidden><small>💭 raciocinando</small><p></p></div>
+              <pre class="ao-vivo-codigo" id="ovCodigo" hidden></pre></div>
           </div>
           ${!p.versaoAtual && p.status === 'erro' ? `<div class="overlay-gerando"><div class="erro-caixa" style="max-width:560px">${esc(p.erro)}</div></div>` : ''}
         </div>
