@@ -181,8 +181,10 @@ function iniciarGeracao(p, pedido, origem, instrucao) {
     pedido: usarGuia ? pedido + '\n' + BLOCO_GUIA : pedido,
     modelo: p.modelo,
     pastaImagens,
-    // vídeos longos levam mais tempo para escrever: 20 min até 30 s, +1 min a cada 5 s a mais (máx. 60 min)
-    timeoutMs: Math.min(60, 20 + Math.max(0, ((+p.ajustes?.duracao || 10) - 30) / 5)) * 60_000,
+    // tempo máximo de uma geração
+    timeoutMs: 180 * 60_000, // até 3 h: gerações longas nunca são cortadas (dá para cancelar na tela)
+    // vídeos longos: o Opus com raciocínio alto ficava 40 min só planejando; com esforço baixo ele escreve direto
+    esforco: (+p.ajustes?.duracao || 10) > 60 ? 'low' : undefined,
     sinal: job.controle.signal,
     aoProgresso: (chars, msg) => {
       if (msg) msgJob(job, msg);
