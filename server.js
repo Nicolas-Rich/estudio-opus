@@ -170,13 +170,13 @@ function iniciarGeracao(p, pedido, origem, instrucao) {
   job.status = 'rodando';
   msgJob(job, 'Enviando o pedido para o Claude…');
   const t0 = Date.now();
-  // guia de qualidade HyperFrames: a IA consulta blueprints/receitas numa pasta de trabalho (desliga com ajustes.guiaHF = false)
+  // guia de qualidade HyperFrames: a IA consulta as referências de movimento/tipos de vídeo numa pasta de trabalho (desliga com ajustes.guiaHF = false)
   const usarGuia = guiaPronto() && p.ajustes?.guiaHF !== false;
   const pastaAssets = path.join(pastaProjeto(p.id), 'assets');
   const pastaTrabalho = usarGuia
     ? prepararPastaTrabalho(pastaProjeto(p.id), pastaAssets, (p.imagens || []).map((i) => i.arquivo))
     : Promise.resolve(p.imagens?.length ? pastaAssets : undefined);
-  if (usarGuia) msgJob(job, 'Guia de qualidade HyperFrames ativo: a IA vai consultar blueprints e receitas de movimento.');
+  if (usarGuia) msgJob(job, 'Guia de qualidade HyperFrames ativo: a IA vai consultar as regras de movimento e o guia do tipo de vídeo.');
   pastaTrabalho.then((pastaImagens) => gerarComClaude({
     pedido: usarGuia ? pedido + '\n' + BLOCO_GUIA : pedido,
     modelo: p.modelo,
