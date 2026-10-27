@@ -1,24 +1,28 @@
 // Lançador do Estúdio Opus (vira "Estudio Opus.exe" na raiz do projeto; compile com lancador/compilar.ps1).
 // Roda o servidor sem janela de CMD e fica como ícone perto do relógio, com "Abrir" e "Fechar".
 // Se o estúdio já está rodando, só abre o navegador. A saída do servidor vai para estudio.log.
+// Com --fechar (atalho "Fechar Estúdio Opus"), avisa a instância aberta para fechar o estúdio.
 using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Windows.Forms;
 
 static class EstudioOpus
 {
     const string URL = "http://127.0.0.1:4777";
     const string TITULO = "Estúdio Opus";
+    const string EVENTO_FECHAR = @"Local\EstudioOpus.Fechar";
 
     static string pasta;
     static Process servidor;
     static NotifyIcon icone;
     static StreamWriter log;
     static bool fechando;
+    static EventWaitHandle pedidoFechar;
 
     static bool Rodando()
     {
@@ -104,9 +108,31 @@ static class EstudioOpus
         Application.Exit();
     }
 
-    [STAThread]
-    static void Main()
+    static void Fechar()
     {
+        EventWaitHandle evento;
+        if (!EventWaitHandle.TryOpenExisting(EVENTO_FECHAR, out evento))
+        {
+            if (Rodando())
+                Erro("O Estúdio Opus foi aberto pelo \"Iniciar Estudio.bat\".\n\nPara fechar, feche aquela janela preta.");
+            else
+                MessageBox.Show("O Estúdio Opus já está fechado.", TITULO, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        using (evento) evento.Set();
+        for (int i = 0; i < 30 && Rodando(); i++) Thread.Sleep(500);
+        if (Rodando()) Erro("Não consegui fechar o Estúdio Opus. Tente de novo em alguns segundos.");
+        else MessageBox.Show("Estúdio Opus fechado.", TITULO, MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    [STAThread]
+    static void Main(string[] args)
+    {
+        if (Array.IndexOf(args, "--fechar") >= 0)
+        {
+            Fechar();
+            return;
+        }
         if (Rodando())
         {
             AbrirNavegador();
@@ -172,7 +198,11 @@ static class EstudioOpus
         servidor.BeginOutputReadLine();
         servidor.BeginErrorReadLine();
 
-        icone.ShowBalloonTip(6000, TITULO, "O estúdio está abrindo no navegador. Para fechar, clique com o botão direito neste ícone perto do relógio.", ToolTipIcon.Info);
+        // o atalho "Fechar Estúdio Opus" (--fechar) sinaliza este evento
+        pedidoFechar = new EventWaitHandle(false, EventResetMode.AutoReset, EVENTO_FECHAR);
+        ThreadPool.RegisterWaitForSingleObject(pedidoFechar, (st, t) => sync.BeginInvoke((MethodInvoker)Sair), null, Timeout.Infinite, true);
+
+        icone.ShowBalloonTip(6000, TITULO, "O estúdio está abrindo no navegador. Para fechar, use o atalho \"Fechar Estúdio Opus\" na Área de Trabalho ou o botão direito neste ícone.", ToolTipIcon.Info);
         Application.ApplicationExit += (s, e) => { fechando = true; PararServidor(); };
         Application.Run();
     }
