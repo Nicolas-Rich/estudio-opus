@@ -6,6 +6,9 @@
 node_modules/
 /awesome-opus5-5-videos/
 
+# lançador compilado (gere de novo com lancador/compilar.ps1)
+/Estudio Opus.exe
+
 # arquivos temporários e de sistema
 *.log
 .env
