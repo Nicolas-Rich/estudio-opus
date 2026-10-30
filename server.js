@@ -7,7 +7,7 @@ import { createWriteStream, existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { gerarComClaude, montarPedido, montarRefino, montarSincronia, MODELOS_CLAUDE, versaoClaude } from './lib/claude.js';
+import { gerarComClaude, montarPedido, montarRefino, montarSincronia, MODELOS_CLAUDE, versaoClaude, atualizarClaude } from './lib/claude.js';
 import { renderizarHtml, capturarQuadro } from './lib/render.js';
 import { sondar, miniatura, exportarTimeline, FFMPEG as FFMPEG_BIN } from './lib/ffmpeg.js';
 import { registrarRotasAudio, estadoAudio, faixasDoProjeto } from './lib/rotas-audio.js';
@@ -79,6 +79,7 @@ if (!existsSync(path.join(REPO, 'data', 'videos.json'))) {
 }
 await carregarModelos();
 garantirGuia(RAIZ); // guia de qualidade HyperFrames (baixa em segundo plano na 1ª vez)
+atualizarClaude(); // mantém o Claude Code em dia (modelos novos exigem versões novas do CLI); em segundo plano
 
 // ---------------------------------------------------------------- jobs
 const jobs = new Map();
