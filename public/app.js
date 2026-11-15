@@ -2281,7 +2281,7 @@ const ESTILOS_LEGENDA = {
   karaoke: { nome: 'Karaokê', destaque: '#00e5ff', karaoke: true },
   simples: { nome: 'Simples', destaque: null },
 };
-const FONTES_CSS = { negrito: '"Arial Black", Arial, sans-serif', impacto: 'Impact, sans-serif', serifa: 'Georgia, serif', normal: 'Arial, sans-serif', moderna: '"Segoe UI Black", "Segoe UI", sans-serif' };
+const FONTES_CSS = { negrito: '"Arial Black", Arial, sans-serif', impacto: 'Impact, sans-serif', serifa: 'Georgia, serif', normal: 'Arial, sans-serif', moderna: '"Segoe UI Black", "Segoe UI", sans-serif', montserrat: 'Montserrat, "Segoe UI Black", sans-serif' };
 const TAMS_TEXTO = { p: 3.5, m: 5, g: 7, gg: 9.5 };
 const topoPorPos = (pos, y) => (pos === 'topo' ? 12 : pos === 'centro' ? 50 : pos === 'livre' ? (y ?? 50) : 80);
 
@@ -2689,7 +2689,7 @@ function inspetorTexto(ins, t) {
     <h3>Estilo</h3>
     <div class="grade-estilos">${Object.entries(ESTILOS_TEXTO).map(([k, e]) => `<button class="estilo-btn ${t.estilo === k ? 'ativa' : ''}" data-estilo="${k}"><span style="${e.css};font-family:${FONTES_CSS.negrito}">Aa</span>${e.nome}</button>`).join('')}</div>
     <div class="corte">
-      <label>Fonte<select id="xFonte">${Object.entries({ negrito: 'Arial Black', impacto: 'Impact', moderna: 'Segoe UI Black', serifa: 'Georgia', normal: 'Arial' }).map(([k, v]) => `<option value="${k}" ${t.fonte === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label>Fonte<select id="xFonte">${Object.entries({ negrito: 'Arial Black', impacto: 'Impact', moderna: 'Segoe UI Black', montserrat: 'Montserrat', serifa: 'Georgia', normal: 'Arial' }).map(([k, v]) => `<option value="${k}" ${t.fonte === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       <label>Cor (opcional)<input type="color" id="xCor" value="${t.cor || '#ffffff'}"></label>
       <label>Tamanho<select id="xTam">${Object.entries({ p: 'Pequeno', m: 'Médio', g: 'Grande', gg: 'Gigante' }).map(([k, v]) => `<option value="${k}" ${t.tam === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       <label>Posição<select id="xPos">${Object.entries({ topo: 'Topo', centro: 'Centro', base: 'Base', livre: 'Livre (altura)' }).map(([k, v]) => `<option value="${k}" ${t.pos === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
